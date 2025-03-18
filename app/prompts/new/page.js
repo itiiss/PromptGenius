@@ -1,7 +1,15 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { useUser } from '@clerk/nextjs';
+import dynamic from 'next/dynamic';
+import Select from 'react-select/creatable';
+import { useRouter } from 'next/navigation';
+
+// 动态导入 React Select，并禁用 SSR
+const DynamicSelect = dynamic(() => import('react-select/creatable'), {
+  ssr: false,
+});
 
 export default function CreatePrompt() {
   const { user } = useUser();
@@ -13,6 +21,69 @@ export default function CreatePrompt() {
     version: '1.0',
     coverImage: null
   });
+  const [tags, setTags] = useState([]);
+  const [selectedTags, setSelectedTags] = useState([]);
+  const router = useRouter();
+
+  useEffect(() => {
+    async function fetchTags() {
+      try {
+        const supabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+        );
+        
+        const { data, error } = await supabase
+          .from('tags')
+          .select('*');
+          
+        if (error) throw error;
+        
+        setTags(data.map(tag => ({
+          value: tag.id,
+          label: tag.name
+        })));
+      } catch (error) {
+        console.error('获取标签失败:', error);
+      }
+    }
+    fetchTags();
+  }, []);
+
+  const handleCreateTag = async (inputValue) => {
+    try {
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      );
+      
+      const { data, error } = await supabase
+        .from('tags')
+        .insert([{ name: inputValue }])
+        .select()
+        .single();
+        
+      if (error) throw error;
+      
+      const newOption = { value: data.id, label: data.name };
+      setTags(prev => [...prev, newOption]);
+      
+      setSelectedTags(prev => [...prev, newOption]);
+      
+      return newOption;
+    } catch (error) {
+      console.error('创建标签失败:', error);
+      return null;
+    }
+  };
+
+  const handleTagChange = (newValue) => {
+    setSelectedTags(newValue || []);
+    setFormData(prev => ({
+      ...prev,
+      tags: newValue ? newValue.map(tag => tag.label) : []
+    }));
+  };
 
   const handleInputChange = (e) => {
     const { id, value } = e.target;
@@ -33,34 +104,46 @@ export default function CreatePrompt() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-    
-
       const supabase = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
       );
 
-      const tagsArray = formData.tags
-        ? formData.tags.split(',').map(tag => tag.trim())
-        : [];
+      const tagIds = selectedTags.map(tag => tag.value);
+      const tagNames = selectedTags.map(tag => tag.label);
 
-      const { data, error } = await supabase
+      // 1. 创建提示词，同时存储标签名称
+      const { data: promptData, error: promptError } = await supabase
         .from('prompts')
         .insert([{
           title: formData.title,
           content: formData.content,
-          tags: tagsArray,
           description: formData.description,
           version: formData.version,
-          user_id: user.id
+          user_id: user.id,
+          tags: tagNames
         }])
         .select()
         .single();
 
-      if (error) throw error;
+      if (promptError) throw promptError;
 
-      console.log('提示词创建成功:', data);
-      // TODO: 添加成功提示并跳转到提示词列表页
+      // 2. 创建标签关联关系
+      if (tagIds.length > 0) {
+        const { error: tagError } = await supabase
+          .from('prompt_tags')
+          .insert(
+            tagIds.map(tagId => ({
+              prompt_id: promptData.id,
+              tag_id: tagId
+            }))
+          );
+
+        if (tagError) throw tagError;
+      }
+
+      console.log('提示词创建成功:', promptData);
+      router.push('/prompts');
       
     } catch (error) {
       console.error('创建提示词出错:', error);
@@ -131,17 +214,79 @@ export default function CreatePrompt() {
             <label htmlFor="tags" className="block text-gray-700 dark:text-gray-300 font-medium mb-2">
               标签
             </label>
-            <input
-              type="text"
-              id="tags"
-              value={formData.tags}
-              onChange={handleInputChange}
-              className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl 
-                       focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400
-                       text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400
-                       transition-all duration-200"
-              placeholder="使用逗号分隔多个标签"
-            />
+            <Suspense fallback={
+              <div className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-300 
+                            dark:border-gray-600 rounded-xl">
+                加载中...
+              </div>
+            }>
+              <DynamicSelect
+                isMulti
+                isClearable
+                options={tags}
+                value={selectedTags}
+                onChange={handleTagChange}
+                onCreateOption={handleCreateTag}
+                placeholder="选择或创建标签..."
+                noOptionsMessage={() => "没有找到匹配的标签"}
+                formatCreateLabel={(inputValue) => `创建标签 "${inputValue}"`}
+                className="react-select-container"
+                classNamePrefix="react-select"
+                theme={(theme) => ({
+                  ...theme,
+                  colors: {
+                    ...theme.colors,
+                    primary: '#3b82f6',
+                    primary75: '#60a5fa',
+                    primary50: '#93c5fd',
+                    primary25: '#dbeafe',
+                  },
+                })}
+                styles={{
+                  control: (base, state) => ({
+                    ...base,
+                    backgroundColor: 'rgb(249 250 251)',
+                    borderColor: state.isFocused ? '#3b82f6' : '#d1d5db',
+                    boxShadow: state.isFocused ? '0 0 0 2px rgba(59, 130, 246, 0.5)' : 'none',
+                    '&:hover': {
+                      borderColor: '#3b82f6',
+                    },
+                    borderRadius: '0.75rem',
+                    padding: '0.25rem',
+                  }),
+                  option: (base, state) => ({
+                    ...base,
+                    backgroundColor: state.isSelected 
+                      ? '#3b82f6' 
+                      : state.isFocused 
+                        ? '#dbeafe' 
+                        : 'transparent',
+                    color: state.isSelected ? 'white' : '#374151',
+                    '&:active': {
+                      backgroundColor: '#2563eb',
+                    },
+                  }),
+                  multiValue: (base) => ({
+                    ...base,
+                    backgroundColor: '#dbeafe',
+                    borderRadius: '9999px',
+                  }),
+                  multiValueLabel: (base) => ({
+                    ...base,
+                    color: '#2563eb',
+                  }),
+                  multiValueRemove: (base) => ({
+                    ...base,
+                    color: '#2563eb',
+                    '&:hover': {
+                      backgroundColor: '#bfdbfe',
+                      color: '#1e40af',
+                    },
+                    borderRadius: '0 9999px 9999px 0',
+                  }),
+                }}
+              />
+            </Suspense>
           </div>
 
           <div className="mb-6">

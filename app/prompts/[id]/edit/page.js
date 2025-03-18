@@ -4,17 +4,24 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import { useUser } from '@clerk/nextjs';
 import { use } from 'react';
+import { Suspense } from 'react';
+import dynamic from 'next/dynamic';
+
+const DynamicSelect = dynamic(() => import('react-select/creatable'), {
+  ssr: false,
+});
 
 export default function EditPrompt({ params }) {
   const { user } = useUser();
   const router = useRouter();
   const { id } = use(params);
   const [loading, setLoading] = useState(true);
+  const [tags, setTags] = useState([]);
+  const [selectedTags, setSelectedTags] = useState([]);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     content: '',
-    tags: '',
     version: '1.0'
   });
 
@@ -24,25 +31,66 @@ export default function EditPrompt({ params }) {
   );
 
   useEffect(() => {
+    async function fetchTags() {
+      try {
+        const { data, error } = await supabase
+          .from('tags')
+          .select('*');
+          
+        if (error) throw error;
+        
+        setTags(data.map(tag => ({
+          value: tag.id,
+          label: tag.name
+        })));
+      } catch (error) {
+        console.error('获取标签失败:', error);
+      }
+    }
+    fetchTags();
+  }, []);
+
+  useEffect(() => {
     async function loadPrompt() {
       try {
-     
-        const { data, error } = await supabase
+        // 先获取提示词基本信息
+        const { data: promptData, error: promptError } = await supabase
           .from('prompts')
           .select('*')
           .eq('id', id)
-          .eq('user_id', user.id) // 确保只能编辑自己的提示词
+          .eq('user_id', user.id)
           .single();
 
-        if (error) throw error;
+        if (promptError) throw promptError;
+
+        // 获取该提示词关联的标签
+        const { data: tagData, error: tagError } = await supabase
+          .from('prompt_tags')
+          .select(`
+            tag_id,
+            tags (
+              id,
+              name
+            )
+          `)
+          .eq('prompt_id', id);
+
+        if (tagError) throw tagError;
 
         setFormData({
-          title: data.title,
-          description: data.description || '',
-          content: data.content,
-          tags: data.tags ? data.tags.join(', ') : '',
-          version: data.version || '1.0'
+          title: promptData.title,
+          description: promptData.description || '',
+          content: promptData.content,
+          version: promptData.version || '1.0'
         });
+
+        // 设置已选择的标签
+        const promptTags = tagData.map(item => ({
+          value: item.tags.id,
+          label: item.tags.name
+        }));
+        setSelectedTags(promptTags);
+
       } catch (error) {
         console.error('加载提示词失败:', error);
         alert('加载失败');
@@ -57,12 +105,29 @@ export default function EditPrompt({ params }) {
     }
   }, [id, user]);
 
-  const handleInputChange = (e) => {
-    const { id, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [id]: value
-    }));
+  const handleCreateTag = async (inputValue) => {
+    try {
+      const { data, error } = await supabase
+        .from('tags')
+        .insert([{ name: inputValue }])
+        .select()
+        .single();
+        
+      if (error) throw error;
+      
+      const newOption = { value: data.id, label: data.name };
+      setTags(prev => [...prev, newOption]);
+      setSelectedTags(prev => [...prev, newOption]);
+      
+      return newOption;
+    } catch (error) {
+      console.error('创建标签失败:', error);
+      return null;
+    }
+  };
+
+  const handleTagChange = (newValue) => {
+    setSelectedTags(newValue || []);
   };
 
   const handleSubmit = async (e) => {
@@ -70,23 +135,46 @@ export default function EditPrompt({ params }) {
     setLoading(true);
 
     try {
-      const tagsArray = formData.tags
-        ? formData.tags.split(',').map(tag => tag.trim())
-        : [];
+      const tagIds = selectedTags.map(tag => tag.value);
+      const tagNames = selectedTags.map(tag => tag.label);
 
-      const { error } = await supabase
+      // 1. 更新提示词基本信息，包括标签名称数组
+      const { error: updateError } = await supabase
         .from('prompts')
         .update({
           title: formData.title,
           description: formData.description,
           content: formData.content,
-          tags: tagsArray,
-          version: formData.version
+          version: formData.version,
+          tags: tagNames  // 更新标签名称数组
         })
         .eq('id', id)
-        .eq('user_id', user.id); // 确保只能更新自己的提示词
+        .eq('user_id', user.id);
 
-      if (error) throw error;
+      if (updateError) throw updateError;
+
+      // 2. 删除旧的标签关联
+      const { error: deleteError } = await supabase
+        .from('prompt_tags')
+        .delete()
+        .eq('prompt_id', id);
+
+      if (deleteError) throw deleteError;
+
+      // 3. 插入新的标签关联
+      if (tagIds.length > 0) {
+        const { error: insertError } = await supabase
+          .from('prompt_tags')
+          .insert(
+            tagIds.map(tagId => ({
+              prompt_id: id,
+              tag_id: tagId
+            }))
+          );
+
+        if (insertError) throw insertError;
+      }
+
       router.push('/prompts');
     } catch (error) {
       console.error('更新提示词失败:', error);
@@ -114,7 +202,10 @@ export default function EditPrompt({ params }) {
               type="text"
               id="title"
               value={formData.title}
-              onChange={handleInputChange}
+              onChange={(e) => setFormData(prev => ({
+                ...prev,
+                title: e.target.value
+              }))}
               className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl 
                        focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400
                        text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400
@@ -131,7 +222,10 @@ export default function EditPrompt({ params }) {
               type="text"
               id="description"
               value={formData.description}
-              onChange={handleInputChange}
+              onChange={(e) => setFormData(prev => ({
+                ...prev,
+                description: e.target.value
+              }))}
               className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl 
                        focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400
                        text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400
@@ -148,7 +242,10 @@ export default function EditPrompt({ params }) {
               id="content"
               rows="8"
               value={formData.content}
-              onChange={handleInputChange}
+              onChange={(e) => setFormData(prev => ({
+                ...prev,
+                content: e.target.value
+              }))}
               className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl
                        focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400
                        text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400
@@ -161,17 +258,49 @@ export default function EditPrompt({ params }) {
             <label htmlFor="tags" className="block text-gray-700 dark:text-gray-300 font-medium mb-2">
               标签
             </label>
-            <input
-              type="text"
-              id="tags"
-              value={formData.tags}
-              onChange={handleInputChange}
-              className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl 
-                       focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400
-                       text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400
-                       transition-all duration-200"
-              placeholder="使用逗号分隔多个标签"
-            />
+            <Suspense fallback={
+              <div className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-300 
+                            dark:border-gray-600 rounded-xl">
+                加载中...
+              </div>
+            }>
+              <DynamicSelect
+                isMulti
+                isClearable
+                options={tags}
+                value={selectedTags}
+                onChange={handleTagChange}
+                onCreateOption={handleCreateTag}
+                placeholder="选择或创建标签..."
+                noOptionsMessage={() => "没有找到匹配的标签"}
+                formatCreateLabel={(inputValue) => `创建标签 "${inputValue}"`}
+                className="react-select-container"
+                classNamePrefix="react-select"
+                theme={(theme) => ({
+                  ...theme,
+                  colors: {
+                    ...theme.colors,
+                    primary: '#3b82f6',
+                    primary75: '#60a5fa',
+                    primary50: '#93c5fd',
+                    primary25: '#dbeafe',
+                  },
+                })}
+                styles={{
+                  control: (base, state) => ({
+                    ...base,
+                    backgroundColor: 'rgb(249 250 251)',
+                    borderColor: state.isFocused ? '#3b82f6' : '#d1d5db',
+                    boxShadow: state.isFocused ? '0 0 0 2px rgba(59, 130, 246, 0.5)' : 'none',
+                    '&:hover': {
+                      borderColor: '#3b82f6',
+                    },
+                    borderRadius: '0.75rem',
+                    padding: '0.25rem',
+                  }),
+                }}
+              />
+            </Suspense>
           </div>
 
           <div className="mb-6">
@@ -182,7 +311,10 @@ export default function EditPrompt({ params }) {
               type="text"
               id="version"
               value={formData.version}
-              onChange={handleInputChange}
+              onChange={(e) => setFormData(prev => ({
+                ...prev,
+                version: e.target.value
+              }))}
               className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl 
                        focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400
                        text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400

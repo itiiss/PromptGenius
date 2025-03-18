@@ -7,7 +7,7 @@ import {
   SignedOut,
   UserButton,
 } from '@clerk/nextjs'
-import Navbar from "./components/navbar";
+
 import "./globals.css";
 
 
