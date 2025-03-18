@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import { use } from 'react';
@@ -25,6 +25,21 @@ export default function EditPrompt({ params }) {
     content: '',
     version: '1.0'
   });
+  const [prompt, setPrompt] = useState(null);
+
+  const loadData = useCallback(async () => {
+    try {
+      const data = await promptsApi.getPrompt(id);
+      setPrompt(data);
+    } catch (error) {
+      console.error('加载提示词失败:', error);
+      router.push('/prompts');
+    }
+  }, [id, router]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   useEffect(() => {
     async function fetchTags() {

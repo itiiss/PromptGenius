@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useUser } from '@clerk/nextjs';
 import Select from 'react-select';
 import Loading from '../_components/loading';
@@ -9,7 +9,7 @@ import { promptsApi } from '../api/prompts';
 import { tagsApi } from '../api/tags';
 
 export default function PromptsList() {
-  const { user } = useUser();
+  const { user, userLoading } = useUser();
   const [prompts, setPrompts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -30,24 +30,32 @@ export default function PromptsList() {
     loadTags();
   }, []);
 
-  // 获取提示词列表
-  async function loadPrompts(search = '', filterTags = []) {
-    if (!user) return;
-    
+  // 使用useCallback包装loadPrompts函数
+  const loadPrompts = useCallback(async () => {
     try {
-      const promptsData = await promptsApi.fetchPrompts(user.id, search, filterTags);
-      setPrompts(promptsData);
+      setLoading(true);
+      if (!user) {
+        setPrompts([]);
+        return;
+      }
+      const data = await promptsApi.fetchPrompts(user.id, searchTerm, selectedTags);
+      setPrompts(data);
     } catch (error) {
-      console.error('获取提示词列表失败:', error);
+      console.error('加载提示词失败:', error);
+      setPrompts([]);
     } finally {
       setLoading(false);
     }
-  }
+  }, [user, searchTerm, selectedTags]);
+
+  useEffect(() => {
+    loadPrompts();
+  }, [loadPrompts]);
 
   // 监听搜索条件和标签变化
   useEffect(() => {
     loadPrompts(searchTerm, selectedTags);
-  }, [user, searchTerm, selectedTags]);
+  }, [user, searchTerm, selectedTags, loadPrompts]);
 
   // 处理搜索输入
   const handleSearch = (e) => {
@@ -62,7 +70,7 @@ export default function PromptsList() {
   const handleDelete = async (id) => {
     try {
       await promptsApi.deletePrompt(id, user.id);
-      loadPrompts(searchTerm, selectedTags); // 重新加载列表
+      loadPrompts(); // 重新加载列表
     } catch (err) {
       console.error('删除提示词失败:', err);
       toast.error('删除失败，请重试');
@@ -100,6 +108,12 @@ export default function PromptsList() {
       });
     }
   };
+
+  if (userLoading) {
+    return <div>加载中...</div>;
+  }
+
+
 
   if (loading) return <Loading />;
 
