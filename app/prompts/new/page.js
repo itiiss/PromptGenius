@@ -3,8 +3,9 @@ import { useState, useEffect, Suspense } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { useUser } from '@clerk/nextjs';
 import dynamic from 'next/dynamic';
-import Select from 'react-select/creatable';
 import { useRouter } from 'next/navigation';
+import Loading from '../../_components/loading';
+
 
 // 动态导入 React Select，并禁用 SSR
 const DynamicSelect = dynamic(() => import('react-select/creatable'), {
@@ -24,6 +25,7 @@ export default function CreatePrompt() {
   const [tags, setTags] = useState([]);
   const [selectedTags, setSelectedTags] = useState([]);
   const router = useRouter();
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     async function fetchTags() {
@@ -104,6 +106,7 @@ export default function CreatePrompt() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      setLoading(true);
       const supabase = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -148,8 +151,12 @@ export default function CreatePrompt() {
     } catch (error) {
       console.error('创建提示词出错:', error);
       // TODO: 显示错误提示
+    } finally {
+      setLoading(false);
     }
   };
+
+  if (loading) return <Loading />;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-8">

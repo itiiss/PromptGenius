@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js'
 import { useUser } from '@clerk/nextjs';
 import Select from 'react-select';
+import Loading from '../_components/loading';
 
 export default function PromptsList() {
   const { user } = useUser();
@@ -109,7 +110,7 @@ export default function PromptsList() {
     }
   };
 
-  if (loading) return <div className="text-center">加载中...</div>;
+  if (loading) return <Loading />;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-8">

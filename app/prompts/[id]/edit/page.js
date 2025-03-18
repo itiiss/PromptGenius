@@ -6,6 +6,7 @@ import { useUser } from '@clerk/nextjs';
 import { use } from 'react';
 import { Suspense } from 'react';
 import dynamic from 'next/dynamic';
+import Loading from '../../../_components/loading';
 
 const DynamicSelect = dynamic(() => import('react-select/creatable'), {
   ssr: false,
@@ -184,7 +185,7 @@ export default function EditPrompt({ params }) {
     }
   };
 
-  if (loading) return <div className="text-center">加载中...</div>;
+  if (loading) return <Loading />;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-8">
