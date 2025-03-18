@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 import { useUser } from '@clerk/nextjs';
 import Select from 'react-select';
 import Loading from '../_components/loading';
+import toast, { Toaster } from 'react-hot-toast';
 
 export default function PromptsList() {
   const { user } = useUser();
@@ -110,10 +111,36 @@ export default function PromptsList() {
     }
   };
 
+  // 添加分享处理函数
+  const handleShare = async (prompt) => {
+    const shareUrl = `${window.location.origin}/prompts/share/${prompt.id}`;
+    
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      toast.success('分享链接已复制到剪贴板', {
+        duration: 2000,
+        position: 'top-center',
+        icon: '🔗',
+        style: {
+          borderRadius: '10px',
+          background: '#333',
+          color: '#fff',
+        },
+      });
+    } catch (err) {
+      console.error('复制链接失败:', err);
+      toast.error('复制链接失败，请重试', {
+        duration: 2000,
+        position: 'top-center',
+      });
+    }
+  };
+
   if (loading) return <Loading />;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-8">
+      <Toaster />
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
           <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-6">
@@ -156,58 +183,58 @@ export default function PromptsList() {
                 placeholder="按标签筛选..."
                 className="react-select-container"
                 classNamePrefix="react-select"
-                theme={(theme) => ({
-                  ...theme,
-                  colors: {
-                    ...theme.colors,
-                    primary: '#3b82f6',
-                    primary75: '#60a5fa',
-                    primary50: '#93c5fd',
-                    primary25: '#dbeafe',
-                  },
-                })}
                 styles={{
                   control: (base) => ({
                     ...base,
                     minHeight: '42px',
-                    height: '42px',
-                    backgroundColor: 'white',
+                    backgroundColor: 'rgb(249 250 251)',
                     borderColor: '#d1d5db',
                     borderRadius: '0.75rem',
                     '&:hover': {
                       borderColor: '#3b82f6',
                     },
                     boxShadow: 'none',
-                    padding: '0 4px',
+                    height: 'auto',
+                    '@media (prefers-color-scheme: dark)': {
+                      backgroundColor: 'rgb(31 41 55)',
+                      borderColor: 'rgb(55 65 81)',
+                    },
                   }),
-                  valueContainer: (base) => ({
+                  menu: (base) => ({
                     ...base,
-                    padding: '0 6px',
+                    backgroundColor: 'rgb(249 250 251)',
+                    '@media (prefers-color-scheme: dark)': {
+                      backgroundColor: 'rgb(31 41 55)',
+                    },
+                  }),
+                  option: (base) => ({
+                    ...base,
+                    '@media (prefers-color-scheme: dark)': {
+                      '&:hover': {
+                        backgroundColor: 'rgb(55 65 81)',
+                      },
+                      backgroundColor: 'rgb(31 41 55)',
+                      color: 'rgb(229 231 235)',
+                    },
                   }),
                   input: (base) => ({
                     ...base,
-                    margin: '0',
-                    padding: '0',
-                  }),
-                  multiValue: (base) => ({
-                    ...base,
-                    backgroundColor: '#dbeafe',
-                    borderRadius: '9999px',
-                    margin: '2px',
-                  }),
-                  multiValueLabel: (base) => ({
-                    ...base,
-                    color: '#2563eb',
-                    padding: '2px 8px',
-                  }),
-                  multiValueRemove: (base) => ({
-                    ...base,
-                    color: '#2563eb',
-                    '&:hover': {
-                      backgroundColor: '#bfdbfe',
-                      color: '#1e40af',
+                    color: 'rgb(55 65 81)',
+                    '@media (prefers-color-scheme: dark)': {
+                      color: 'rgb(229 231 235)',
                     },
-                    borderRadius: '0 9999px 9999px 0',
+                  }),
+                  placeholder: (base) => ({
+                    ...base,
+                    '@media (prefers-color-scheme: dark)': {
+                      color: 'rgb(156 163 175)',
+                    },
+                  }),
+                  singleValue: (base) => ({
+                    ...base,
+                    '@media (prefers-color-scheme: dark)': {
+                      color: 'rgb(229 231 235)',
+                    },
                   }),
                 }}
               />
@@ -257,38 +284,44 @@ export default function PromptsList() {
                   )}
 
                   <div className="flex flex-col gap-2 mt-auto pt-2 border-t border-gray-100 dark:border-gray-700">
-                    <div className="flex justify-between items-center">
-                      <div className="text-xs text-gray-500 dark:text-gray-400">
-                        {new Date(prompt.updated_at).toLocaleDateString('zh-CN', {
-                          year: 'numeric',
-                          month: 'numeric',
-                          day: 'numeric'
-                        }).replace(/\//g, '/')} • 版本 {prompt.version}
-                      </div>
-                      <div className="flex gap-2">
-                        <a
-                          href={`/prompts/${prompt.id}/edit`}
-                          className="inline-flex items-center px-2 py-1 rounded-lg text-xs
-                                  text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30"
-                        >
-                          <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" 
-                                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
-                          编辑
-                        </a>
-                        <button
-                          onClick={() => handleDeleteClick(prompt)}
-                          className="inline-flex items-center px-2 py-1 rounded-lg text-xs
-                                  text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30"
-                        >
-                          <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" 
-                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                          删除
-                        </button>
-                      </div>
+                    <div className="flex justify-end gap-2">
+                      <button
+                        onClick={() => handleShare(prompt)}
+                        className="inline-flex items-center px-2 py-1 rounded-lg text-xs
+                                text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/30
+                                transition-all duration-200"
+                      >
+                        <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" 
+                                d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
+                        </svg>
+                        分享
+                      </button>
+                      <a
+                        href={`/prompts/share/${prompt.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center px-2 py-1 rounded-lg text-xs
+                                text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30
+                                text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30"
+                      >
+                        <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" 
+                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                        编辑
+                      </a>
+                      <button
+                        onClick={() => handleDeleteClick(prompt)}
+                        className="inline-flex items-center px-2 py-1 rounded-lg text-xs
+                                text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30"
+                      >
+                        <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" 
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        删除
+                      </button>
                     </div>
                   </div>
                 </div>
