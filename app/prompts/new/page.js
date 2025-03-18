@@ -1,11 +1,11 @@
 'use client';
-import { useState, useEffect, Suspense } from 'react';
-import { createClient } from '@supabase/supabase-js';
-import { useUser } from '@clerk/nextjs';
-import dynamic from 'next/dynamic';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useUser } from '@clerk/nextjs';
+import { Suspense } from 'react';
+import dynamic from 'next/dynamic';
 import Loading from '../../_components/loading';
-
+import { promptsApi } from '../../api/prompts';
 
 // 动态导入 React Select，并禁用 SSR
 const DynamicSelect = dynamic(() => import('react-select/creatable'), {
@@ -30,21 +30,8 @@ export default function CreatePrompt() {
   useEffect(() => {
     async function fetchTags() {
       try {
-        const supabase = createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL,
-          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-        );
-        
-        const { data, error } = await supabase
-          .from('tags')
-          .select('*');
-          
-        if (error) throw error;
-        
-        setTags(data.map(tag => ({
-          value: tag.id,
-          label: tag.name
-        })));
+        const tagsData = await promptsApi.fetchTags();
+        setTags(tagsData);
       } catch (error) {
         console.error('获取标签失败:', error);
       }
@@ -54,24 +41,9 @@ export default function CreatePrompt() {
 
   const handleCreateTag = async (inputValue) => {
     try {
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-      );
-      
-      const { data, error } = await supabase
-        .from('tags')
-        .insert([{ name: inputValue }])
-        .select()
-        .single();
-        
-      if (error) throw error;
-      
-      const newOption = { value: data.id, label: data.name };
+      const newOption = await promptsApi.createTag(inputValue);
       setTags(prev => [...prev, newOption]);
-      
       setSelectedTags(prev => [...prev, newOption]);
-      
       return newOption;
     } catch (error) {
       console.error('创建标签失败:', error);
@@ -105,52 +77,14 @@ export default function CreatePrompt() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
+
     try {
-      setLoading(true);
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-      );
-
-      const tagIds = selectedTags.map(tag => tag.value);
-      const tagNames = selectedTags.map(tag => tag.label);
-
-      // 1. 创建提示词，同时存储标签名称
-      const { data: promptData, error: promptError } = await supabase
-        .from('prompts')
-        .insert([{
-          title: formData.title,
-          content: formData.content,
-          description: formData.description,
-          version: formData.version,
-          user_id: user.id,
-          tags: tagNames
-        }])
-        .select()
-        .single();
-
-      if (promptError) throw promptError;
-
-      // 2. 创建标签关联关系
-      if (tagIds.length > 0) {
-        const { error: tagError } = await supabase
-          .from('prompt_tags')
-          .insert(
-            tagIds.map(tagId => ({
-              prompt_id: promptData.id,
-              tag_id: tagId
-            }))
-          );
-
-        if (tagError) throw tagError;
-      }
-
-      console.log('提示词创建成功:', promptData);
+      await promptsApi.createPrompt(user.id, formData, selectedTags);
       router.push('/prompts');
-      
     } catch (error) {
       console.error('创建提示词出错:', error);
-      // TODO: 显示错误提示
+      alert('创建失败，请重试');
     } finally {
       setLoading(false);
     }

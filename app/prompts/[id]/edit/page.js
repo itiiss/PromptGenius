@@ -1,12 +1,12 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
 import { useUser } from '@clerk/nextjs';
 import { use } from 'react';
 import { Suspense } from 'react';
 import dynamic from 'next/dynamic';
 import Loading from '../../../_components/loading';
+import { promptsApi } from '../../../api/prompts';
 
 const DynamicSelect = dynamic(() => import('react-select/creatable'), {
   ssr: false,
@@ -26,24 +26,11 @@ export default function EditPrompt({ params }) {
     version: '1.0'
   });
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  );
-
   useEffect(() => {
     async function fetchTags() {
       try {
-        const { data, error } = await supabase
-          .from('tags')
-          .select('*');
-          
-        if (error) throw error;
-        
-        setTags(data.map(tag => ({
-          value: tag.id,
-          label: tag.name
-        })));
+        const tagsData = await promptsApi.fetchTags();
+        setTags(tagsData);
       } catch (error) {
         console.error('获取标签失败:', error);
       }
@@ -54,44 +41,16 @@ export default function EditPrompt({ params }) {
   useEffect(() => {
     async function loadPrompt() {
       try {
-        // 先获取提示词基本信息
-        const { data: promptData, error: promptError } = await supabase
-          .from('prompts')
-          .select('*')
-          .eq('id', id)
-          .eq('user_id', user.id)
-          .single();
-
-        if (promptError) throw promptError;
-
-        // 获取该提示词关联的标签
-        const { data: tagData, error: tagError } = await supabase
-          .from('prompt_tags')
-          .select(`
-            tag_id,
-            tags (
-              id,
-              name
-            )
-          `)
-          .eq('prompt_id', id);
-
-        if (tagError) throw tagError;
-
+        const { promptData, promptTags } = await promptsApi.loadPrompt(id, user.id);
+        
         setFormData({
           title: promptData.title,
           description: promptData.description || '',
           content: promptData.content,
           version: promptData.version || '1.0'
         });
-
-        // 设置已选择的标签
-        const promptTags = tagData.map(item => ({
-          value: item.tags.id,
-          label: item.tags.name
-        }));
+        
         setSelectedTags(promptTags);
-
       } catch (error) {
         console.error('加载提示词失败:', error);
         alert('加载失败');
@@ -108,18 +67,9 @@ export default function EditPrompt({ params }) {
 
   const handleCreateTag = async (inputValue) => {
     try {
-      const { data, error } = await supabase
-        .from('tags')
-        .insert([{ name: inputValue }])
-        .select()
-        .single();
-        
-      if (error) throw error;
-      
-      const newOption = { value: data.id, label: data.name };
+      const newOption = await promptsApi.createTag(inputValue);
       setTags(prev => [...prev, newOption]);
       setSelectedTags(prev => [...prev, newOption]);
-      
       return newOption;
     } catch (error) {
       console.error('创建标签失败:', error);
@@ -136,46 +86,7 @@ export default function EditPrompt({ params }) {
     setLoading(true);
 
     try {
-      const tagIds = selectedTags.map(tag => tag.value);
-      const tagNames = selectedTags.map(tag => tag.label);
-
-      // 1. 更新提示词基本信息，包括标签名称数组
-      const { error: updateError } = await supabase
-        .from('prompts')
-        .update({
-          title: formData.title,
-          description: formData.description,
-          content: formData.content,
-          version: formData.version,
-          tags: tagNames  // 更新标签名称数组
-        })
-        .eq('id', id)
-        .eq('user_id', user.id);
-
-      if (updateError) throw updateError;
-
-      // 2. 删除旧的标签关联
-      const { error: deleteError } = await supabase
-        .from('prompt_tags')
-        .delete()
-        .eq('prompt_id', id);
-
-      if (deleteError) throw deleteError;
-
-      // 3. 插入新的标签关联
-      if (tagIds.length > 0) {
-        const { error: insertError } = await supabase
-          .from('prompt_tags')
-          .insert(
-            tagIds.map(tagId => ({
-              prompt_id: id,
-              tag_id: tagId
-            }))
-          );
-
-        if (insertError) throw insertError;
-      }
-
+      await promptsApi.updatePrompt(id, user.id, formData, selectedTags);
       router.push('/prompts');
     } catch (error) {
       console.error('更新提示词失败:', error);

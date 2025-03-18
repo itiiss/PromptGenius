@@ -1,84 +1,189 @@
-import { NextResponse } from 'next/server';
-import { supabase } from '../lib/supabase';
+import { createSupabaseClient } from '../../lib/supabase';
 
-// 获取所有提示词 List
-export async function GET(request) {
-  try {
-    // 从 URL 获取分页参数
-    const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get('page') || '1');
-    const pageSize = parseInt(searchParams.get('pageSize') || '10');
-    
-    // 计算偏移量
-    const from = (page - 1) * pageSize;
-    const to = from + pageSize - 1;
+export const promptsApi = {
+  // 获取所有标签
+  async fetchTags() {
+    const supabase = createSupabaseClient();
+    const { data, error } = await supabase.from('tags').select('*');
+    if (error) throw error;
+    return data.map(tag => ({
+      value: tag.id,
+      label: tag.name
+    }));
+  },
 
-    // 获取总记录数
-    const { count } = await supabase
-      .from('prompts')
-      .select('*', { count: 'exact', head: true });
-
-    // 获取分页数据
-    const { data, error } = await supabase
+  // 加载单个提示词及其标签
+  async loadPrompt(id, userId) {
+    const supabase = createSupabaseClient();
+    // 获取提示词基本信息
+    const { data: promptData, error: promptError } = await supabase
       .from('prompts')
       .select('*')
-      .order('created_at', { ascending: false })
-      .range(from, to);
+      .eq('id', id)
+      .eq('user_id', userId)
+      .single();
 
+    if (promptError) throw promptError;
+
+    // 获取提示词关联的标签
+    const { data: tagData, error: tagError } = await supabase
+      .from('prompt_tags')
+      .select(`
+        tag_id,
+        tags (
+          id,
+          name
+        )
+      `)
+      .eq('prompt_id', id);
+
+    if (tagError) throw tagError;
+
+    return {
+      promptData,
+      promptTags: tagData.map(item => ({
+        value: item.tags.id,
+        label: item.tags.name
+      }))
+    };
+  },
+
+  // 创建新标签
+  async createTag(name) {
+    const supabase = createSupabaseClient();
+    const { data, error } = await supabase
+      .from('tags')
+      .insert([{ name }])
+      .select()
+      .single();
+      
     if (error) throw error;
+    return { value: data.id, label: data.name };
+  },
 
-    // 返回分页数据和分页信息
-    return NextResponse.json({
-      data,
-      pagination: {
-        total: count,
-        page,
-        pageSize,
-        totalPages: Math.ceil(count / pageSize)
-      }
-    });
-  } catch (error) {
-    return NextResponse.json(
-      { error: '获取提示词失败' },
-      { status: 500 }
-    );
-  }
-}
+  // 更新提示词
+  async updatePrompt(id, userId, formData, selectedTags) {
+    const supabase = createSupabaseClient();
+    const tagIds = selectedTags.map(tag => tag.value);
+    const tagNames = selectedTags.map(tag => tag.label);
 
-// 创建新提示词 Create
-export async function POST(request) {
-  try {
-    const body = await request.json();
-    const { title, content, tags } = body;
+    // 1. 获取当前提示词内容
+    const { data: currentPrompt } = await supabase
+      .from('prompts')
+      .select('content')
+      .eq('id', id)
+      .single();
 
-    // 验证必填字段
-    if (!title || !content) {
-      return NextResponse.json(
-        { error: '标题和内容为必填项' },
-        { status: 400 }
-      );
+    // 2. 如果内容有变化，创建新版本
+    if (currentPrompt.content !== formData.content) {
+      await this.createNewVersion(id, currentPrompt.content);
     }
 
-    const { data, error } = await supabase
+    // 3. 更新提示词基本信息
+    const { error: updateError } = await supabase
       .from('prompts')
-      .insert([
-        {
-          title,
-          content,
-          tags,
-          user_id: 'system', // 这里应该使用实际的用户ID
-        }
-      ])
+      .update({
+        title: formData.title,
+        description: formData.description,
+        content: formData.content,
+        version: formData.version,
+        tags: tagNames
+      })
+      .eq('id', id)
+      .eq('user_id', userId);
+
+    if (updateError) throw updateError;
+
+    // 4. 更新标签关联
+    await this.updatePromptTags(id, tagIds);
+  },
+
+  // 创建新版本
+  async createNewVersion(promptId, oldContent) {
+    const supabase = createSupabaseClient();
+    const { data: versions } = await supabase
+      .from('prompt_versions')
+      .select('version')
+      .eq('prompt_id', promptId)
+      .order('version', { ascending: false })
+      .limit(1);
+
+    const newVersion = versions && versions.length > 0 ? versions[0].version + 1 : 1;
+
+    const { error: versionError } = await supabase
+      .from('prompt_versions')
+      .insert({
+        prompt_id: promptId,
+        content: oldContent,
+        version: newVersion,
+        created_at: new Date().toISOString()
+      });
+
+    if (versionError) throw versionError;
+  },
+
+  // 更新提示词标签关联
+  async updatePromptTags(promptId, tagIds) {
+    const supabase = createSupabaseClient();
+    // 删除旧的标签关联
+    const { error: deleteError } = await supabase
+      .from('prompt_tags')
+      .delete()
+      .eq('prompt_id', promptId);
+
+    if (deleteError) throw deleteError;
+
+    // 插入新的标签关联
+    if (tagIds.length > 0) {
+      const { error: insertError } = await supabase
+        .from('prompt_tags')
+        .insert(
+          tagIds.map(tagId => ({
+            prompt_id: promptId,
+            tag_id: tagId
+          }))
+        );
+
+      if (insertError) throw insertError;
+    }
+  },
+
+  // 创建新提示词
+  async createPrompt(userId, formData, selectedTags) {
+    const supabase = createSupabaseClient();
+    const tagIds = selectedTags.map(tag => tag.value);
+    const tagNames = selectedTags.map(tag => tag.label);
+
+    // 1. 创建提示词，同时存储标签名称
+    const { data: promptData, error: promptError } = await supabase
+      .from('prompts')
+      .insert([{
+        title: formData.title,
+        content: formData.content,
+        description: formData.description,
+        version: formData.version,
+        user_id: userId,
+        tags: tagNames
+      }])
       .select()
       .single();
 
-    if (error) throw error;
+    if (promptError) throw promptError;
 
-    return NextResponse.json(data);
-  } catch (error) {
-    return NextResponse.json(
-      { error: '创建提示词失败' },
-      { status: 500 }
-    );
+    // 2. 创建标签关联关系
+    if (tagIds.length > 0) {
+      const { error: tagError } = await supabase
+        .from('prompt_tags')
+        .insert(
+          tagIds.map(tagId => ({
+            prompt_id: promptData.id,
+            tag_id: tagId
+          }))
+        );
+
+      if (tagError) throw tagError;
+    }
+
+    return promptData;
   }
-}
+}; 

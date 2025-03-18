@@ -5,6 +5,7 @@ import { useUser } from '@clerk/nextjs';
 import Select from 'react-select';
 import Loading from '../_components/loading';
 import toast, { Toaster } from 'react-hot-toast';
+import Link from 'next/link';
 
 export default function PromptsList() {
   const { user } = useUser();
@@ -285,32 +286,76 @@ export default function PromptsList() {
 
                   <div className="flex flex-col gap-2 mt-auto pt-2 border-t border-gray-100 dark:border-gray-700">
                     <div className="flex justify-end gap-2">
-                      <button
-                        onClick={() => handleShare(prompt)}
-                        className="inline-flex items-center px-2 py-1 rounded-lg text-xs
-                                text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/30
-                                transition-all duration-200"
-                      >
-                        <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" 
-                                d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
-                        </svg>
-                        分享
-                      </button>
-                      <a
-                        href={`/prompts/share/${prompt.id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center px-2 py-1 rounded-lg text-xs
-                                text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30
-                                text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30"
-                      >
-                        <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" 
-                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                        编辑
-                      </a>
+                      <div className="flex items-center space-x-2">
+                        <Link
+                          href={`/prompts/share/${prompt.id}`}
+                          className="text-gray-500 hover:text-gray-700"
+                        >
+                          <div className="flex items-center">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              strokeWidth={1.5}
+                              stroke="currentColor"
+                              className="w-4 h-4"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z"
+                              />
+                            </svg>
+                            <span className="text-xs ml-1">分享</span>
+                          </div>
+                        </Link>
+
+                        <Link
+                          href={`/prompts/${prompt.id}/versions`}
+                          className="text-gray-500 hover:text-gray-700"
+                        >
+                          <div className="flex items-center">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              strokeWidth={1.5}
+                              stroke="currentColor"
+                              className="w-4 h-4"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
+                              />
+                            </svg>
+                            <span className="text-xs ml-1">历史</span>
+                          </div>
+                        </Link>
+
+                        <Link
+                          href={`/prompts/${prompt.id}/edit`}
+                          className="text-gray-500 hover:text-gray-700"
+                        >
+                          <div className="flex items-center">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              strokeWidth={1.5}
+                              stroke="currentColor"
+                              className="w-4 h-4"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"
+                              />
+                            </svg>
+                            <span className="text-xs ml-1">编辑</span>
+                          </div>
+                        </Link>
+                      </div>
                       <button
                         onClick={() => handleDeleteClick(prompt)}
                         className="inline-flex items-center px-2 py-1 rounded-lg text-xs
