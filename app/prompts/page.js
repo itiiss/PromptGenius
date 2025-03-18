@@ -1,11 +1,12 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { createClient } from '@supabase/supabase-js'
 import { useUser } from '@clerk/nextjs';
 import Select from 'react-select';
 import Loading from '../_components/loading';
 import toast, { Toaster } from 'react-hot-toast';
 import Link from 'next/link';
+import { promptsApi } from '../api/prompts';
+import { tagsApi } from '../api/tags';
 
 export default function PromptsList() {
   const { user } = useUser();
@@ -15,68 +16,37 @@ export default function PromptsList() {
   const [tags, setTags] = useState([]);
   const [selectedTags, setSelectedTags] = useState([]);
   
-  // 创建 supabase 客户端
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  );
 
   // 获取所有标签
   useEffect(() => {
-    async function fetchTags() {
+    async function loadTags() {
       try {
-        const { data, error } = await supabase
-          .from('tags')
-          .select('*');
-          
-        if (error) throw error;
-        
-        setTags(data.map(tag => ({
-          value: tag.name,
-          label: tag.name
-        })));
+        const tagsData = await tagsApi.fetchTags();
+        setTags(tagsData);
       } catch (error) {
         console.error('获取标签失败:', error);
       }
     }
-    fetchTags();
+    loadTags();
   }, []);
 
   // 获取提示词列表
-  async function fetchPrompts(search = '', filterTags = []) {
+  async function loadPrompts(search = '', filterTags = []) {
     if (!user) return;
     
     try {
-      let query = supabase
-        .from('prompts')
-        .select('*')
-        .eq('user_id', user.id);
-
-      // 如果有搜索关键词，添加搜索条件
-      if (search) {
-        query = query.or(`title.ilike.%${search}%,content.ilike.%${search}%`);
-      }
-
-      // 如果选择了标签，添加标签过滤
-      if (filterTags.length > 0) {
-        const tagNames = filterTags.map(tag => tag.value);
-        query = query.contains('tags', tagNames);
-      }
-
-      const { data: promptsData, error: promptsError } = await query;
-
-      if (promptsError) throw promptsError;
+      const promptsData = await promptsApi.fetchPrompts(user.id, search, filterTags);
       setPrompts(promptsData);
     } catch (error) {
       console.error('获取提示词列表失败:', error);
     } finally {
-      setLoading(false); // 无论成功失败都设置 loading 为 false
+      setLoading(false);
     }
   }
 
   // 监听搜索条件和标签变化
   useEffect(() => {
-    fetchPrompts(searchTerm, selectedTags);
+    loadPrompts(searchTerm, selectedTags);
   }, [user, searchTerm, selectedTags]);
 
   // 处理搜索输入
@@ -89,32 +59,26 @@ export default function PromptsList() {
   };
 
   // 删除提示词
-  async function handleDelete(id) {
+  const handleDelete = async (id) => {
     try {
-      const { error } = await supabase
-        .from('prompts')
-        .delete()
-        .eq('id', id)
-        .eq('user_id', user.id);
-
-      if (error) throw error;
-      fetchPrompts(); // 重新加载列表
+      await promptsApi.deletePrompt(id, user.id);
+      loadPrompts(searchTerm, selectedTags); // 重新加载列表
     } catch (err) {
       console.error('删除提示词失败:', err);
-      alert('删除失败');
+      toast.error('删除失败，请重试');
     }
-  }
+  };
 
-  // 添加删除确认函数
+  // 删除确认
   const handleDeleteClick = (prompt) => {
     if (window.confirm(`确定要删除提示词 "${prompt.title}" 吗？此操作不可恢复。`)) {
       handleDelete(prompt.id);
     }
   };
 
-  // 添加分享处理函数
+  // 分享处理
   const handleShare = async (prompt) => {
-    const shareUrl = `${window.location.origin}/prompts/share/${prompt.id}`;
+    const shareUrl = promptsApi.getShareUrl(prompt.id);
     
     try {
       await navigator.clipboard.writeText(shareUrl);
@@ -287,8 +251,8 @@ export default function PromptsList() {
                   <div className="flex flex-col gap-2 mt-auto pt-2 border-t border-gray-100 dark:border-gray-700">
                     <div className="flex justify-end gap-2">
                       <div className="flex items-center space-x-2">
-                        <Link
-                          href={`/prompts/share/${prompt.id}`}
+                        <button
+                          onClick={() => handleShare(prompt)}
                           className="text-gray-500 hover:text-gray-700"
                         >
                           <div className="flex items-center">
@@ -308,7 +272,7 @@ export default function PromptsList() {
                             </svg>
                             <span className="text-xs ml-1">分享</span>
                           </div>
-                        </Link>
+                        </button>
 
                         <Link
                           href={`/prompts/${prompt.id}/versions`}

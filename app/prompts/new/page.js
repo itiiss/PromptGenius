@@ -6,7 +6,7 @@ import { Suspense } from 'react';
 import dynamic from 'next/dynamic';
 import Loading from '../../_components/loading';
 import { promptsApi } from '../../api/prompts';
-
+import { tagsApi } from '../../api/tags';
 // 动态导入 React Select，并禁用 SSR
 const DynamicSelect = dynamic(() => import('react-select/creatable'), {
   ssr: false,
@@ -30,7 +30,7 @@ export default function CreatePrompt() {
   useEffect(() => {
     async function fetchTags() {
       try {
-        const tagsData = await promptsApi.fetchTags();
+        const tagsData = await tagsApi.fetchTags();
         setTags(tagsData);
       } catch (error) {
         console.error('获取标签失败:', error);
@@ -41,7 +41,7 @@ export default function CreatePrompt() {
 
   const handleCreateTag = async (inputValue) => {
     try {
-      const newOption = await promptsApi.createTag(inputValue);
+      const newOption = await tagsApi.createTag(inputValue);
       setTags(prev => [...prev, newOption]);
       setSelectedTags(prev => [...prev, newOption]);
       return newOption;

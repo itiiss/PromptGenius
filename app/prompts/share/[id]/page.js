@@ -1,28 +1,17 @@
 'use client';
-import { useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import { useState, useEffect, use } from 'react';
+import { promptsApi } from '../../../api/prompts';
 import Loading from '../../../_components/loading';
 
-export default function SharePrompt({ params }) {
-  const { id } = params;
+export default function SharedPromptPage({ params }) {
+  const { id } = use(params);
   const [prompt, setPrompt] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  );
-
   useEffect(() => {
-    async function fetchPrompt() {
+    async function loadSharedPrompt() {
       try {
-        const { data, error } = await supabase
-          .from('prompts')
-          .select('*')
-          .eq('id', id)
-          .single();
-
-        if (error) throw error;
+        const data = await promptsApi.getSharedPrompt(id);
         setPrompt(data);
       } catch (error) {
         console.error('获取提示词详情失败:', error);
@@ -31,7 +20,7 @@ export default function SharePrompt({ params }) {
       }
     }
 
-    fetchPrompt();
+    loadSharedPrompt();
   }, [id]);
 
   if (loading) return <Loading />;

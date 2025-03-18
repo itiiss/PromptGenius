@@ -2,50 +2,34 @@
 
 import { useState, useEffect } from 'react';
 import { use } from 'react';
-import { createClient } from '@supabase/supabase-js';
 import 'react-diff-view/style/index.css';
+import { versionsApi } from '../../../api/versions';
 
 export default function PromptVersions({ params }) {
   const { id } = use(params);
   const [versions, setVersions] = useState([]);
   const [currentPrompt, setCurrentPrompt] = useState(null);
   const [selectedVersion, setSelectedVersion] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
-    try {
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-      );
-      
-      // 获取当前提示词内容
-      const { data: promptData, error: promptError } = await supabase
-        .from('prompts')
-        .select('*')
-        .eq('id', id)
-        .single();
-
-      if (promptError) throw promptError;
-      setCurrentPrompt(promptData);
-
-      // 获取历史版本
-      const { data: versionsData, error: versionsError } = await supabase
-        .from('prompt_versions')
-        .select('*')
-        .eq('prompt_id', id)
-        .order('version', { ascending: false });
-
-      if (versionsError) throw versionsError;
-      setVersions(versionsData);
-      
-    } catch (error) {
-      console.error('获取数据失败:', error);
+    async function loadData() {
+      try {
+        const { currentPrompt, versions } = await versionsApi.getPromptWithVersions(id);
+        setCurrentPrompt(currentPrompt);
+        setVersions(versions);
+      } catch (error) {
+        console.error('获取数据失败:', error);
+        // 可以添加错误提示
+      } finally {
+        setLoading(false);
+      }
     }
-  };
+
+    loadData();
+  }, [id]);
+
+  if (loading) return <div>加载中...</div>;
 
   // 高亮显示文本差异
   const highlightDifferences = (oldText, newText) => {

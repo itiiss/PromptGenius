@@ -1,17 +1,40 @@
 import { createSupabaseClient } from '../../lib/supabase';
 
 export const versionsApi = {
-  // 获取提示词的所有版本
-  async getPromptVersions(promptId) {
+  // 获取提示词及其所有版本信息
+  async getPromptWithVersions(promptId) {
     const supabase = createSupabaseClient();
-    const { data, error } = await supabase
-      .from('prompt_versions')
-      .select('*')
-      .eq('prompt_id', promptId)
-      .order('version', { ascending: false });
+    
+    try {
+      // 并行获取提示词和版本信息
+      const [promptResult, versionsResult] = await Promise.all([
+        // 获取当前提示词内容
+        supabase
+          .from('prompts')
+          .select('*')
+          .eq('id', promptId)
+          .single(),
+          
+        // 获取历史版本
+        supabase
+          .from('prompt_versions')
+          .select('*')
+          .eq('prompt_id', promptId)
+          .order('version', { ascending: false })
+      ]);
 
-    if (error) throw error;
-    return data;
+      // 检查错误
+      if (promptResult.error) throw promptResult.error;
+      if (versionsResult.error) throw versionsResult.error;
+
+      return {
+        currentPrompt: promptResult.data,
+        versions: versionsResult.data
+      };
+    } catch (error) {
+      console.error('获取提示词版本数据失败:', error);
+      throw error;
+    }
   },
 
   // 创建新版本

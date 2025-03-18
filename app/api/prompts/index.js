@@ -1,15 +1,47 @@
 import { createSupabaseClient } from '../../lib/supabase';
+import { versionsApi } from '../versions';
 
 export const promptsApi = {
-  // 获取所有标签
-  async fetchTags() {
+  // 获取提示词列表（包含搜索和过滤功能）
+  async fetchPrompts(userId, search = '', filterTags = []) {
     const supabase = createSupabaseClient();
-    const { data, error } = await supabase.from('tags').select('*');
+    let query = supabase
+      .from('prompts')
+      .select('*')
+      .eq('user_id', userId);
+
+    // 如果有搜索关键词，添加搜索条件
+    if (search) {
+      query = query.or(`title.ilike.%${search}%,content.ilike.%${search}%`);
+    }
+
+    // 如果选择了标签，添加标签过滤
+    if (filterTags.length > 0) {
+      const tagNames = filterTags.map(tag => tag.value);
+      query = query.contains('tags', tagNames);
+    }
+
+    const { data, error } = await query;
     if (error) throw error;
-    return data.map(tag => ({
-      value: tag.id,
-      label: tag.name
-    }));
+    return data;
+  },
+
+  // 删除提示词
+  async deletePrompt(id, userId) {
+    const supabase = createSupabaseClient();
+    const { error } = await supabase
+      .from('prompts')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', userId);
+
+    if (error) throw error;
+  },
+
+  // 获取分享链接
+  getShareUrl(promptId) {
+    if (typeof window === 'undefined') return '';
+    return `${window.location.origin}/prompts/share/${promptId}`;
   },
 
   // 加载单个提示词及其标签
@@ -48,19 +80,6 @@ export const promptsApi = {
     };
   },
 
-  // 创建新标签
-  async createTag(name) {
-    const supabase = createSupabaseClient();
-    const { data, error } = await supabase
-      .from('tags')
-      .insert([{ name }])
-      .select()
-      .single();
-      
-    if (error) throw error;
-    return { value: data.id, label: data.name };
-  },
-
   // 更新提示词
   async updatePrompt(id, userId, formData, selectedTags) {
     const supabase = createSupabaseClient();
@@ -76,7 +95,7 @@ export const promptsApi = {
 
     // 2. 如果内容有变化，创建新版本
     if (currentPrompt.content !== formData.content) {
-      await this.createNewVersion(id, currentPrompt.content);
+      await versionsApi.createVersion(id, currentPrompt.content);
     }
 
     // 3. 更新提示词基本信息
@@ -96,30 +115,6 @@ export const promptsApi = {
 
     // 4. 更新标签关联
     await this.updatePromptTags(id, tagIds);
-  },
-
-  // 创建新版本
-  async createNewVersion(promptId, oldContent) {
-    const supabase = createSupabaseClient();
-    const { data: versions } = await supabase
-      .from('prompt_versions')
-      .select('version')
-      .eq('prompt_id', promptId)
-      .order('version', { ascending: false })
-      .limit(1);
-
-    const newVersion = versions && versions.length > 0 ? versions[0].version + 1 : 1;
-
-    const { error: versionError } = await supabase
-      .from('prompt_versions')
-      .insert({
-        prompt_id: promptId,
-        content: oldContent,
-        version: newVersion,
-        created_at: new Date().toISOString()
-      });
-
-    if (versionError) throw versionError;
   },
 
   // 更新提示词标签关联
@@ -185,5 +180,19 @@ export const promptsApi = {
     }
 
     return promptData;
+  },
+
+  // 获取共享的提示词详情
+  async getSharedPrompt(promptId) {
+    const supabase = createSupabaseClient();
+    
+    const { data, error } = await supabase
+      .from('prompts')
+      .select('*')
+      .eq('id', promptId)
+      .single();
+
+    if (error) throw error;
+    return data;
   }
 }; 
