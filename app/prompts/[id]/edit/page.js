@@ -4,15 +4,16 @@ import { useRouter } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import { use } from 'react';
 import { Suspense } from 'react';
-import dynamic from 'next/dynamic';
 import Loading from '../../../_components/loading';
 import { promptsApi } from '../../../api/prompts';
 import { tagsApi } from '../../../api/tags';
 import { PLATFORM_OPTIONS } from '../../../constants/platforms';
 import DynamicSelect from '../../../_components/DynamicSelect';
 import { createSupabaseClient } from '../../../lib/supabase';
+import { useI18n } from '../../../i18n/i18nContext';
 
 export default function EditPrompt({ params }) {
+  const { t } = useI18n();
   const { user } = useUser();
   const router = useRouter();
   const { id } = use(params);
@@ -27,18 +28,23 @@ export default function EditPrompt({ params }) {
   });
 
   const loadData = useCallback(async () => {
+    if (!user) return;
+
     try {
       const data = await promptsApi.fetchPrompt(id, user.id);
       setPrompt(data);
     } catch (error) {
       console.error('加载提示词失败:', error);
+      alert(t('editPrompt.alerts.loadError'));
       router.push('/prompts');
     }
-  }, [id, router, user?.id]);
+  }, [id, user, router, t]);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (user) {
+      loadData();
+    }
+  }, [loadData, user]);
 
   const loadPromptTags = async (promptId) => {
     try {
@@ -66,8 +72,10 @@ export default function EditPrompt({ params }) {
 
   useEffect(() => {
     async function fetchData() {
+      if (!user) return;
+
       try {
-        const tagsData = await tagsApi.fetchTags(user?.id);
+        const tagsData = await tagsApi.fetchTags(user.id);
         setTags(tagsData);
 
         if (id) {
@@ -78,13 +86,13 @@ export default function EditPrompt({ params }) {
       }
     }
 
-    if (user?.id) {
-      fetchData();
-    }
-  }, [user?.id, id]);
+    fetchData();
+  }, [user, id]);
 
   useEffect(() => {
     async function loadPrompt() {
+      if (!user) return;
+
       try {
         const { promptData, promptTags } = await promptsApi.loadPrompt(id, user.id);
         
@@ -96,17 +104,15 @@ export default function EditPrompt({ params }) {
         });
       } catch (error) {
         console.error('加载提示词失败:', error);
-        alert('加载失败');
+        alert(t('editPrompt.alerts.loadError'));
         router.push('/prompts');
       } finally {
         setLoading(false);
       }
     }
 
-    if (user) {
-      loadPrompt();
-    }
-  }, [id, user]);
+    loadPrompt();
+  }, [id, user, router, t]);
 
   const handleCreateTag = async (inputValue) => {
     try {
@@ -144,11 +150,15 @@ export default function EditPrompt({ params }) {
       router.push('/prompts');
     } catch (error) {
       console.error('更新失败:', error);
-      alert('更新失败，请重试');
+      alert(t('editPrompt.alerts.updateError'));
     } finally {
       setLoading(false);
     }
   };
+
+  if (!user) {
+    return <Loading />;
+  }
 
   if (loading) return <Loading />;
 
@@ -156,13 +166,13 @@ export default function EditPrompt({ params }) {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-8">
       <div className="max-w-2xl mx-auto">
         <h1 className="text-4xl font-bold mb-6 text-gray-900 dark:text-gray-100 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-          编辑提示词
+          {t('editPrompt.title')}
         </h1>
         
         <form onSubmit={handleSubmit} className="backdrop-blur-lg bg-white/80 dark:bg-gray-800/80 p-8 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700">
           <div className="mb-6">
             <label htmlFor="title" className="block text-gray-700 dark:text-gray-300 font-medium mb-2">
-              标题
+              {t('editPrompt.form.title.label')}
             </label>
             <input
               type="text"
@@ -176,13 +186,13 @@ export default function EditPrompt({ params }) {
                        focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400
                        text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400
                        transition-all duration-200"
-              placeholder="输入提示词标题"
+              placeholder={t('editPrompt.form.title.placeholder')}
             />
           </div>
 
           <div className="mb-6">
             <label htmlFor="description" className="block text-gray-700 dark:text-gray-300 font-medium mb-2">
-              描述
+              {t('editPrompt.form.description.label')}
             </label>
             <input
               type="text"
@@ -196,13 +206,13 @@ export default function EditPrompt({ params }) {
                        focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400
                        text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400
                        transition-all duration-200"
-              placeholder="简短描述这个提示词的用途"
+              placeholder={t('editPrompt.form.description.placeholder')}
             />
           </div>
           
           <div className="mb-6">
             <label htmlFor="content" className="block text-gray-700 dark:text-gray-300 font-medium mb-2">
-              提示词内容
+              {t('editPrompt.form.content.label')}
             </label>
             <textarea
               id="content"
@@ -216,20 +226,20 @@ export default function EditPrompt({ params }) {
                        focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400
                        text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400
                        transition-all duration-200"
-              placeholder="输入提示词内容"
+              placeholder={t('editPrompt.form.content.placeholder')}
             ></textarea>
           </div>
 
           <div className="mb-6">
             <label htmlFor="platform" className="block text-gray-700 dark:text-gray-300 font-medium mb-2">
-              平台
+              {t('editPrompt.form.platform.label')}
             </label>
             <DynamicSelect
               id="platform"
               value={PLATFORM_OPTIONS.find(option => option.value === prompt.platform)}
               onChange={(option) => setPrompt({...prompt, platform: option.value})}
               options={PLATFORM_OPTIONS}
-              placeholder="选择平台..."
+              placeholder={t('editPrompt.form.platform.placeholder')}
               className="react-select-container"
               classNamePrefix="react-select"
               styles={{
@@ -276,12 +286,12 @@ export default function EditPrompt({ params }) {
 
           <div className="mb-6">
             <label htmlFor="tags" className="block text-gray-700 dark:text-gray-300 font-medium mb-2">
-              标签
+              {t('editPrompt.form.tags.label')}
             </label>
             <Suspense fallback={
               <div className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-300 
                             dark:border-gray-600 rounded-xl">
-                加载中...
+                {t('editPrompt.form.tags.loading')}
               </div>
             }>
               <DynamicSelect
@@ -291,9 +301,9 @@ export default function EditPrompt({ params }) {
                 value={selectedTags}
                 onChange={handleTagChange}
                 onCreateOption={handleCreateTag}
-                placeholder="选择或创建标签..."
-                noOptionsMessage={() => "没有找到匹配的标签"}
-                formatCreateLabel={(inputValue) => `创建标签 "${inputValue}"`}
+                placeholder={t('editPrompt.form.tags.placeholder')}
+                noOptionsMessage={() => t('editPrompt.form.tags.noOptions')}
+                formatCreateLabel={(inputValue) => t('editPrompt.form.tags.createLabel', { value: inputValue })}
                 className="react-select-container"
                 classNamePrefix="react-select"
                 theme={(theme) => ({
@@ -329,14 +339,14 @@ export default function EditPrompt({ params }) {
               onClick={() => router.push('/prompts')}
               className="px-6 py-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
             >
-              取消
+              {t('editPrompt.buttons.cancel')}
             </button>
             <button
               type="submit"
               disabled={loading}
               className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-70"
             >
-              {loading ? '保存中...' : '保存修改'}
+              {loading ? t('editPrompt.buttons.saving') : t('editPrompt.buttons.save')}
             </button>
           </div>
         </form>

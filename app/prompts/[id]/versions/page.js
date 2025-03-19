@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { use } from 'react';
 import 'react-diff-view/style/index.css';
 import { versionsApi } from '../../../api/versions';
+import { useI18n } from '../../../i18n/i18nContext';
 
 export default function PromptVersions({ params }) {
   const { id } = use(params);
@@ -11,6 +12,7 @@ export default function PromptVersions({ params }) {
   const [currentPrompt, setCurrentPrompt] = useState(null);
   const [selectedVersion, setSelectedVersion] = useState(null);
   const [loading, setLoading] = useState(true);
+  const { t } = useI18n();
 
   useEffect(() => {
     async function loadData() {
@@ -29,7 +31,7 @@ export default function PromptVersions({ params }) {
     loadData();
   }, [id]);
 
-  if (loading) return <div>加载中...</div>;
+  if (loading) return <div>{t('versions.loading')}</div>;
 
   // 高亮显示文本差异
   const highlightDifferences = (oldText, newText) => {
@@ -82,9 +84,9 @@ export default function PromptVersions({ params }) {
         <div className="flex flex-col">
           <div className="flex items-center justify-between mb-2 px-1">
             <h2 className="text-base font-medium text-gray-900 dark:text-gray-100">
-              最新版本
+              {t('versions.title.latest')}
               <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">
-                当前版本
+                {t('versions.title.current')}
               </span>
             </h2>
           </div>
@@ -102,7 +104,7 @@ export default function PromptVersions({ params }) {
         <div className="flex flex-col">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2 px-1">
             <h2 className="text-base font-medium text-gray-900 dark:text-gray-100">
-              历史版本
+              {t('versions.title.history')}
             </h2>
             <select
               className="w-full sm:w-[200px] px-3 py-2 text-sm border rounded-lg
@@ -115,10 +117,13 @@ export default function PromptVersions({ params }) {
               }}
               value={selectedVersion?.id || ''}
             >
-              <option value="">选择历史版本</option>
+              <option value="">{t('versions.select.placeholder')}</option>
               {versions.map(version => (
                 <option key={version.id} value={version.id}>
-                  版本 {version.version} ({new Date(version.created_at).toLocaleString()})
+                  {t('versions.select.version', {
+                    number: version.version,
+                    date: new Date(version.created_at).toLocaleString()
+                  })}
                 </option>
               ))}
             </select>
@@ -134,7 +139,7 @@ export default function PromptVersions({ params }) {
             ) : (
               <div className="flex items-center justify-center h-[200px] 
                              text-sm text-gray-400 dark:text-gray-500">
-                请选择一个历史版本进行对比
+                {t('versions.comparePrompt')}
               </div>
             )}
           </div>

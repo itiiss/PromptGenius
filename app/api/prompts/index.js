@@ -3,44 +3,7 @@ import { versionsApi } from '../versions';
 
 export const promptsApi = {
 
-  createPrompt: async (userId, promptData) => {
-    const supabase = createSupabaseClient();
-    const { data, error } = await supabase
-      .from('prompts')
-      .insert([
-        {
-          user_id: userId,
-          title: promptData.title,
-          content: promptData.content,
-          platform: promptData.platform,
-          tags: promptData.tags
-        }
-      ])
-      .select();
-
-    if (error) throw error;
-    return data[0];
-  },
-
-  // 更新提示词
-  updatePrompt: async (promptId, userId, promptData) => {
-    const supabase = createSupabaseClient();
-    const { data, error } = await supabase
-      .from('prompts')
-      .update({
-        title: promptData.title,
-        content: promptData.content,
-        platform: promptData.platform,
-        tags: promptData.tags,
-        updated_at: new Date()
-      })
-      .eq('id', promptId)
-      .eq('user_id', userId)
-      .select();
-
-    if (error) throw error;
-    return data[0];
-  },
+ 
 
   // 获取单个提示词
   fetchPrompt: async (promptId, userId) => {
@@ -95,7 +58,7 @@ export const promptsApi = {
 
     // 如果选择了标签，添加标签过滤
     if (filterTags.length > 0) {
-      const tagNames = filterTags.map(tag => tag.value);
+      const tagNames = filterTags.map(tag => tag.label);
       query = query.contains('tags', tagNames);
     }
 

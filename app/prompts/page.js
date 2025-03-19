@@ -11,6 +11,7 @@ import { useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { PLATFORMS } from '../constants/platforms';
 import DynamicSelect from '../_components/DynamicSelect';
+import { useI18n } from '../i18n/i18nContext';
 
 // 动态导入MenuPortal，禁用SSR
 const MenuPortal = dynamic(
@@ -20,6 +21,7 @@ const MenuPortal = dynamic(
 
 // 修改卡片中的Menu部分
 const PromptCard = ({ prompt, onShare, onDelete, onAskQuestion }) => {
+  const { t } = useI18n();
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   const menuButtonRef = useRef(null);
@@ -95,7 +97,7 @@ const PromptCard = ({ prompt, onShare, onDelete, onAskQuestion }) => {
               d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z"
             />
           </svg>
-          <span className="text-xs ml-1">去提问</span>
+          <span className="text-xs ml-1">{t('promptsList.card.askQuestion')}</span>
         </button>
 
         <button
@@ -136,7 +138,7 @@ const PromptCard = ({ prompt, onShare, onDelete, onAskQuestion }) => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" 
                         d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                 </svg>
-                分享
+                {t('promptsList.card.menu.share')}
               </button>
 
               <Link
@@ -148,7 +150,7 @@ const PromptCard = ({ prompt, onShare, onDelete, onAskQuestion }) => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" 
                         d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                历史版本
+                {t('promptsList.card.menu.versions')}
               </Link>
 
               <button
@@ -162,7 +164,7 @@ const PromptCard = ({ prompt, onShare, onDelete, onAskQuestion }) => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" 
                         d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
-                删除
+                {t('promptsList.card.menu.delete')}
               </button>
             </div>
           }
@@ -180,6 +182,7 @@ export default function PromptsList() {
   const [tags, setTags] = useState([]);
   const [selectedTags, setSelectedTags] = useState([]);
   const [selectedPlatform, setSelectedPlatform] = useState(null);
+  const { t } = useI18n();
   
 
   // 获取所有标签
@@ -254,24 +257,27 @@ export default function PromptsList() {
       loadPrompts(); // 重新加载列表
     } catch (err) {
       console.error('删除提示词失败:', err);
-      toast.error('删除失败，请重试');
+      toast.error(t('promptsList.toast.deleteError'), {
+        duration: 2000,
+        position: 'top-center',
+      });
     }
   };
 
-  // 删除确认
+  // 修改删除确认
   const handleDeleteClick = (prompt) => {
-    if (window.confirm(`确定要删除提示词 "${prompt.title}" 吗？此操作不可恢复。`)) {
+    if (window.confirm(t('promptsList.card.deleteConfirm', { title: prompt.title }))) {
       handleDelete(prompt.id);
     }
   };
 
-  // 分享处理
+  // 修改分享处理
   const handleShare = async (prompt) => {
     const shareUrl = promptsApi.getShareUrl(prompt.id);
     
     try {
       await navigator.clipboard.writeText(shareUrl);
-      toast.success('分享链接已复制到剪贴板', {
+      toast.success(t('promptsList.toast.copySuccess'), {
         duration: 2000,
         position: 'top-center',
         icon: '🔗',
@@ -283,14 +289,14 @@ export default function PromptsList() {
       });
     } catch (err) {
       console.error('复制链接失败:', err);
-      toast.error('复制链接失败，请重试', {
+      toast.error(t('promptsList.toast.copyError'), {
         duration: 2000,
         position: 'top-center',
       });
     }
   };
 
-  // 添加handleAskQuestion函数
+  // 修改提问处理
   const handleAskQuestion = async (prompt) => {
     try {
       // 添加复制文本的后备方案
@@ -343,9 +349,8 @@ export default function PromptsList() {
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
       const isAndroid = /Android/.test(navigator.userAgent);
       
-      // 根据复制结果显示不同的提示
       if (copySuccess) {
-        toast.success(`提示词已复制，正在打开${platform.name}...`, {
+        toast.success(t('promptsList.toast.promptCopied', { platform: platform.name }), {
           duration: 2000,
           position: 'top-center',
           icon: '🤖',
@@ -356,7 +361,7 @@ export default function PromptsList() {
           },
         });
       } else {
-        toast.warning(`无法自动复制提示词，请手动复制后使用`, {
+        toast.warning(t('promptsList.toast.promptCopyError'), {
           duration: 3000,
           position: 'top-center',
           icon: '⚠️',
@@ -380,7 +385,7 @@ export default function PromptsList() {
 
     } catch (err) {
       console.error('操作失败:', err);
-      toast.error('操作失败，请重试', {
+      toast.error(t('promptsList.toast.copyError'), {
         duration: 2000,
         position: 'top-center',
       });
@@ -396,7 +401,7 @@ export default function PromptsList() {
         <div className="mb-4">
           <div className="flex justify-between items-center mb-3">
             <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              提示词列表
+              {t('promptsList.title')}
             </h1>
             
             <Link
@@ -417,18 +422,17 @@ export default function PromptsList() {
                   d="M12 4v16m8-8H4"
                 />
               </svg>
-              <span>新建</span>
+              <span>{t('promptsList.newButton')}</span>
             </Link>
           </div>
           
           <div className="flex flex-col lg:flex-row gap-3">
-            {/* 搜索框 */}
             <div className="flex-1 relative">
               <input
                 type="text"
                 value={searchTerm}
                 onChange={handleSearch}
-                placeholder="搜索提示词的标题或内容..."
+                placeholder={t('promptsList.search.placeholder')}
                 className="w-full h-[42px] px-4 py-2 pl-12 bg-white dark:bg-gray-800 
                            border border-gray-300 dark:border-gray-700 rounded-xl
                            focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400
@@ -450,15 +454,13 @@ export default function PromptsList() {
               </svg>
             </div>
             
-            {/* 筛选器容器 */}
             <div className="flex flex-col sm:flex-row gap-4 lg:w-auto">
-              {/* 平台选择 */}
               <div className="w-full sm:w-48">
                 <DynamicSelect
                   value={selectedPlatform}
                   onChange={handlePlatformChange}
                   options={platformOptions}
-                  placeholder="按平台筛选..."
+                  placeholder={t('promptsList.filters.platform')}
                   isClearable
                   className="react-select-container"
                   classNamePrefix="react-select"
@@ -506,14 +508,13 @@ export default function PromptsList() {
                 />
               </div>
               
-              {/* 标签选择 */}
               <div className="w-full sm:w-72">
                 <Select
                   isMulti
                   value={selectedTags}
                   onChange={handleTagChange}
                   options={tags}
-                  placeholder="按标签筛选..."
+                  placeholder={t('promptsList.filters.tags')}
                   className="react-select-container"
                   classNamePrefix="react-select"
                   styles={{
@@ -579,7 +580,7 @@ export default function PromptsList() {
         <div className="mb-6">
           {prompts.length === 0 ? (
             <div className="text-center py-12 bg-white/80 dark:bg-gray-800/80 rounded-xl shadow-lg">
-              <p className="text-gray-600 dark:text-gray-400">暂无提示词，请创建新的提示词</p>
+              <p className="text-gray-600 dark:text-gray-400">{t('promptsList.empty')}</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6 overflow-visible">
