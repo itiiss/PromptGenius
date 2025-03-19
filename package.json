@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@clerk/nextjs": "^6.12.5",
+    "@headlessui/react": "^2.2.0",
     "@supabase/supabase-js": "^2.49.1",
     "diff": "^7.0.0",
     "next": "15.2.2",
