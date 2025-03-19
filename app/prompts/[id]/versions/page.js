@@ -77,29 +77,38 @@ export default function PromptVersions({ params }) {
 
   return (
     <div className="container mx-auto p-4">
-      <div className="grid grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-8">
         {/* 最新版本 */}
-        <div className="flex flex-col h-full">
-          <div className="flex items-center justify-between mb-1">
-            <h2 className="text-lg font-semibold dark:text-white">最新版本</h2>
-            <div className="text-sm text-gray-500 dark:text-gray-400">
-              当前版本
-            </div>
+        <div className="flex flex-col">
+          <div className="flex items-center justify-between mb-2 px-1">
+            <h2 className="text-base font-medium text-gray-900 dark:text-gray-100">
+              最新版本
+              <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">
+                当前版本
+              </span>
+            </h2>
           </div>
-          <div className="p-4 border rounded bg-white dark:bg-gray-800 dark:border-gray-700 flex-grow">
+          <div className="p-4 border rounded-xl bg-white dark:bg-gray-800 
+                        border-gray-200 dark:border-gray-700 shadow-sm">
             <div 
-              className="whitespace-pre-wrap font-mono text-gray-800 dark:text-gray-200"
+              className="whitespace-pre-wrap font-mono text-sm text-gray-800 dark:text-gray-200 
+                         min-h-[200px] max-h-[400px] overflow-y-auto"
               dangerouslySetInnerHTML={{ __html: newHtml || currentPrompt?.content || '' }}
             />
           </div>
         </div>
 
         {/* 历史版本 */}
-        <div className="flex flex-col h-full">
-          <div className="flex items-center justify-between mb-1">
-            <h2 className="text-lg font-semibold dark:text-white">历史版本</h2>
+        <div className="flex flex-col">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2 px-1">
+            <h2 className="text-base font-medium text-gray-900 dark:text-gray-100">
+              历史版本
+            </h2>
             <select
-              className="w-[200px] p-1 border rounded bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 text-sm"
+              className="w-full sm:w-[200px] px-3 py-2 text-sm border rounded-lg
+                         bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 
+                         text-gray-900 dark:text-gray-100
+                         focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
               onChange={(e) => {
                 const selected = versions.find(v => v.id === e.target.value);
                 setSelectedVersion(selected);
@@ -114,14 +123,19 @@ export default function PromptVersions({ params }) {
               ))}
             </select>
           </div>
-          <div className="p-4 border rounded bg-white dark:bg-gray-800 dark:border-gray-700 flex-grow">
+          <div className="p-4 border rounded-xl bg-white dark:bg-gray-800 
+                        border-gray-200 dark:border-gray-700 shadow-sm">
             {selectedVersion ? (
               <div 
-                className="whitespace-pre-wrap font-mono text-gray-800 dark:text-gray-200"
+                className="whitespace-pre-wrap font-mono text-sm text-gray-800 dark:text-gray-200
+                           min-h-[200px] max-h-[400px] overflow-y-auto"
                 dangerouslySetInnerHTML={{ __html: oldHtml || selectedVersion.content || '' }}
               />
             ) : (
-              <div className="text-gray-400 dark:text-gray-500">请选择一个历史版本进行对比</div>
+              <div className="flex items-center justify-center h-[200px] 
+                             text-sm text-gray-400 dark:text-gray-500">
+                请选择一个历史版本进行对比
+              </div>
             )}
           </div>
         </div>

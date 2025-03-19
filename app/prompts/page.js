@@ -393,22 +393,47 @@ export default function PromptsList() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-8 overflow-visible">
       <Toaster />
       <div className="max-w-7xl mx-auto overflow-visible">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-6">
-            提示词列表
-          </h1>
+        <div className="mb-4">
+          <div className="flex justify-between items-center mb-3">
+            <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              提示词列表
+            </h1>
+            
+            <Link
+              href="/prompts/new"
+              className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 
+                         text-white rounded-lg transition-colors duration-200 shadow-sm text-sm"
+            >
+              <svg 
+                className="w-4 h-4 mr-1" 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round" 
+                  strokeWidth="2" 
+                  d="M12 4v16m8-8H4"
+                />
+              </svg>
+              <span>新建</span>
+            </Link>
+          </div>
           
-          <div className="flex gap-4">
+          <div className="flex flex-col lg:flex-row gap-3">
+            {/* 搜索框 */}
             <div className="flex-1 relative">
               <input
                 type="text"
                 value={searchTerm}
                 onChange={handleSearch}
                 placeholder="搜索提示词的标题或内容..."
-                className="w-full h-[42px] px-4 py-2 pl-12 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl
-                         focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400
-                         text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400
-                         shadow-sm hover:shadow-md transition-all duration-200"
+                className="w-full h-[42px] px-4 py-2 pl-12 bg-white dark:bg-gray-800 
+                           border border-gray-300 dark:border-gray-700 rounded-xl
+                           focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400
+                           text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400
+                           shadow-sm hover:shadow-md transition-all duration-200"
               />
               <svg 
                 className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
@@ -425,123 +450,128 @@ export default function PromptsList() {
               </svg>
             </div>
             
-            <div className="w-48">
-              <DynamicSelect
-                value={selectedPlatform}
-                onChange={handlePlatformChange}
-                options={platformOptions}
-                placeholder="按平台筛选..."
-                isClearable
-                className="react-select-container"
-                classNamePrefix="react-select"
-                styles={{
-                  control: (base) => ({
-                    ...base,
-                    minHeight: '42px',
-                    backgroundColor: 'rgb(249 250 251)',
-                    borderColor: '#d1d5db',
-                    borderRadius: '0.75rem',
-                    '&:hover': {
-                      borderColor: '#3b82f6',
-                    },
-                    boxShadow: 'none',
-                    height: 'auto',
-                    '@media (prefers-color-scheme: dark)': {
-                      backgroundColor: 'rgb(31 41 55)',
-                      borderColor: 'rgb(55 65 81)',
-                    },
-                  }),
-                  menu: (base) => ({
-                    ...base,
-                    backgroundColor: 'rgb(249 250 251)',
-                    '@media (prefers-color-scheme: dark)': {
-                      backgroundColor: 'rgb(31 41 55)',
-                    },
-                  }),
-                  option: (base) => ({
-                    ...base,
-                    '@media (prefers-color-scheme: dark)': {
+            {/* 筛选器容器 */}
+            <div className="flex flex-col sm:flex-row gap-4 lg:w-auto">
+              {/* 平台选择 */}
+              <div className="w-full sm:w-48">
+                <DynamicSelect
+                  value={selectedPlatform}
+                  onChange={handlePlatformChange}
+                  options={platformOptions}
+                  placeholder="按平台筛选..."
+                  isClearable
+                  className="react-select-container"
+                  classNamePrefix="react-select"
+                  styles={{
+                    control: (base) => ({
+                      ...base,
+                      minHeight: '42px',
+                      backgroundColor: 'rgb(249 250 251)',
+                      borderColor: '#d1d5db',
+                      borderRadius: '0.75rem',
                       '&:hover': {
-                        backgroundColor: 'rgb(55 65 81)',
+                        borderColor: '#3b82f6',
                       },
-                      backgroundColor: 'rgb(31 41 55)',
-                      color: 'rgb(229 231 235)',
-                    },
-                  }),
-                  singleValue: (base) => ({
-                    ...base,
-                    '@media (prefers-color-scheme: dark)': {
-                      color: 'rgb(229 231 235)',
-                    },
-                  }),
-                }}
-              />
-            </div>
-            
-            <div className="w-72">
-              <Select
-                isMulti
-                value={selectedTags}
-                onChange={handleTagChange}
-                options={tags}
-                placeholder="按标签筛选..."
-                className="react-select-container"
-                classNamePrefix="react-select"
-                styles={{
-                  control: (base) => ({
-                    ...base,
-                    minHeight: '42px',
-                    backgroundColor: 'rgb(249 250 251)',
-                    borderColor: '#d1d5db',
-                    borderRadius: '0.75rem',
-                    '&:hover': {
-                      borderColor: '#3b82f6',
-                    },
-                    boxShadow: 'none',
-                    height: 'auto',
-                    '@media (prefers-color-scheme: dark)': {
-                      backgroundColor: 'rgb(31 41 55)',
-                      borderColor: 'rgb(55 65 81)',
-                    },
-                  }),
-                  menu: (base) => ({
-                    ...base,
-                    backgroundColor: 'rgb(249 250 251)',
-                    '@media (prefers-color-scheme: dark)': {
-                      backgroundColor: 'rgb(31 41 55)',
-                    },
-                  }),
-                  option: (base) => ({
-                    ...base,
-                    '@media (prefers-color-scheme: dark)': {
+                      boxShadow: 'none',
+                      height: 'auto',
+                      '@media (prefers-color-scheme: dark)': {
+                        backgroundColor: 'rgb(31 41 55)',
+                        borderColor: 'rgb(55 65 81)',
+                      },
+                    }),
+                    menu: (base) => ({
+                      ...base,
+                      backgroundColor: 'rgb(249 250 251)',
+                      '@media (prefers-color-scheme: dark)': {
+                        backgroundColor: 'rgb(31 41 55)',
+                      },
+                    }),
+                    option: (base) => ({
+                      ...base,
+                      '@media (prefers-color-scheme: dark)': {
+                        '&:hover': {
+                          backgroundColor: 'rgb(55 65 81)',
+                        },
+                        backgroundColor: 'rgb(31 41 55)',
+                        color: 'rgb(229 231 235)',
+                      },
+                    }),
+                    singleValue: (base) => ({
+                      ...base,
+                      '@media (prefers-color-scheme: dark)': {
+                        color: 'rgb(229 231 235)',
+                      },
+                    }),
+                  }}
+                />
+              </div>
+              
+              {/* 标签选择 */}
+              <div className="w-full sm:w-72">
+                <Select
+                  isMulti
+                  value={selectedTags}
+                  onChange={handleTagChange}
+                  options={tags}
+                  placeholder="按标签筛选..."
+                  className="react-select-container"
+                  classNamePrefix="react-select"
+                  styles={{
+                    control: (base) => ({
+                      ...base,
+                      minHeight: '42px',
+                      backgroundColor: 'rgb(249 250 251)',
+                      borderColor: '#d1d5db',
+                      borderRadius: '0.75rem',
                       '&:hover': {
-                        backgroundColor: 'rgb(55 65 81)',
+                        borderColor: '#3b82f6',
                       },
-                      backgroundColor: 'rgb(31 41 55)',
-                      color: 'rgb(229 231 235)',
-                    },
-                  }),
-                  input: (base) => ({
-                    ...base,
-                    color: 'rgb(55 65 81)',
-                    '@media (prefers-color-scheme: dark)': {
-                      color: 'rgb(229 231 235)',
-                    },
-                  }),
-                  placeholder: (base) => ({
-                    ...base,
-                    '@media (prefers-color-scheme: dark)': {
-                      color: 'rgb(156 163 175)',
-                    },
-                  }),
-                  singleValue: (base) => ({
-                    ...base,
-                    '@media (prefers-color-scheme: dark)': {
-                      color: 'rgb(229 231 235)',
-                    },
-                  }),
-                }}
-              />
+                      boxShadow: 'none',
+                      height: 'auto',
+                      '@media (prefers-color-scheme: dark)': {
+                        backgroundColor: 'rgb(31 41 55)',
+                        borderColor: 'rgb(55 65 81)',
+                      },
+                    }),
+                    menu: (base) => ({
+                      ...base,
+                      backgroundColor: 'rgb(249 250 251)',
+                      '@media (prefers-color-scheme: dark)': {
+                        backgroundColor: 'rgb(31 41 55)',
+                      },
+                    }),
+                    option: (base) => ({
+                      ...base,
+                      '@media (prefers-color-scheme: dark)': {
+                        '&:hover': {
+                          backgroundColor: 'rgb(55 65 81)',
+                        },
+                        backgroundColor: 'rgb(31 41 55)',
+                        color: 'rgb(229 231 235)',
+                      },
+                    }),
+                    input: (base) => ({
+                      ...base,
+                      color: 'rgb(55 65 81)',
+                      '@media (prefers-color-scheme: dark)': {
+                        color: 'rgb(229 231 235)',
+                      },
+                    }),
+                    placeholder: (base) => ({
+                      ...base,
+                      '@media (prefers-color-scheme: dark)': {
+                        color: 'rgb(156 163 175)',
+                      },
+                    }),
+                    singleValue: (base) => ({
+                      ...base,
+                      '@media (prefers-color-scheme: dark)': {
+                        color: 'rgb(229 231 235)',
+                      },
+                    }),
+                  }}
+                />
+              </div>
             </div>
           </div>
         </div>
