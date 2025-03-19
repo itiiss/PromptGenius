@@ -28,18 +28,20 @@ export default function CreatePrompt() {
   useEffect(() => {
     async function fetchTags() {
       try {
-        const tagsData = await tagsApi.fetchTags();
+        const tagsData = await tagsApi.fetchTags(user?.id);
         setTags(tagsData);
       } catch (error) {
         console.error('获取标签失败:', error);
       }
     }
-    fetchTags();
-  }, []);
+    if (user) {
+      fetchTags();
+    }
+  }, [user]);
 
   const handleCreateTag = async (inputValue) => {
     try {
-      const newOption = await tagsApi.createTag(inputValue);
+      const newOption = await tagsApi.createTag(inputValue, user?.id);
       setTags(prev => [...prev, newOption]);
       setSelectedTags(prev => [...prev, newOption]);
       return newOption;

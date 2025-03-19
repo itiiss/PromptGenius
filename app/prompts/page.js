@@ -186,14 +186,16 @@ export default function PromptsList() {
   useEffect(() => {
     async function loadTags() {
       try {
-        const tagsData = await tagsApi.fetchTags();
+        const tagsData = await tagsApi.fetchTags(user?.id);
         setTags(tagsData);
       } catch (error) {
         console.error('获取标签失败:', error);
       }
     }
-    loadTags();
-  }, []);
+    if (user?.id) {
+      loadTags();
+    }
+  }, [user?.id]);
 
   // 使用useCallback包装loadPrompts函数
   const loadPrompts = useCallback(async () => {
@@ -218,14 +220,12 @@ export default function PromptsList() {
     }
   }, [user, searchTerm, selectedTags, selectedPlatform]);
 
+  // 只保留一个 useEffect
   useEffect(() => {
-    loadPrompts();
-  }, [loadPrompts]);
-
-  // 监听搜索条件和标签变化
-  useEffect(() => {
-    loadPrompts(searchTerm, selectedTags);
-  }, [user, searchTerm, selectedTags, loadPrompts]);
+    if (user?.id) {
+      loadPrompts();
+    }
+  }, [user?.id, searchTerm, selectedTags, selectedPlatform, loadPrompts]);
 
   // 处理搜索输入
   const handleSearch = (e) => {

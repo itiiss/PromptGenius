@@ -10,6 +10,7 @@ import { promptsApi } from '../../../api/prompts';
 import { tagsApi } from '../../../api/tags';
 import { PLATFORM_OPTIONS } from '../../../constants/platforms';
 import DynamicSelect from '../../../_components/DynamicSelect';
+import { createSupabaseClient } from '../../../lib/supabase';
 
 export default function EditPrompt({ params }) {
   const { user } = useUser();
@@ -33,23 +34,54 @@ export default function EditPrompt({ params }) {
       console.error('加载提示词失败:', error);
       router.push('/prompts');
     }
-  }, [id, router]);
+  }, [id, router, user?.id]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
+  const loadPromptTags = async (promptId) => {
+    try {
+      const supabase = createSupabaseClient();
+      const { data, error } = await supabase
+        .from('prompt_tags')
+        .select(`
+          tag_id,
+          tags:tag_id(id, name)
+        `)
+        .eq('prompt_id', promptId);
+
+      if (error) throw error;
+
+      const existingTags = data.map(item => ({
+        value: item.tags.id,
+        label: item.tags.name
+      }));
+
+      setSelectedTags(existingTags);
+    } catch (error) {
+      console.error('加载提示词标签失败:', error);
+    }
+  };
+
   useEffect(() => {
-    async function fetchTags() {
+    async function fetchData() {
       try {
-        const tagsData = await tagsApi.fetchTags();
+        const tagsData = await tagsApi.fetchTags(user?.id);
         setTags(tagsData);
+
+        if (id) {
+          await loadPromptTags(id);
+        }
       } catch (error) {
-        console.error('获取标签失败:', error);
+        console.error('获取数据失败:', error);
       }
     }
-    fetchTags();
-  }, []);
+
+    if (user?.id) {
+      fetchData();
+    }
+  }, [user?.id, id]);
 
   useEffect(() => {
     async function loadPrompt() {
@@ -78,7 +110,7 @@ export default function EditPrompt({ params }) {
 
   const handleCreateTag = async (inputValue) => {
     try {
-      const newOption = await tagsApi.createTag(inputValue);
+      const newOption = await tagsApi.createTag(inputValue, user?.id);
       setTags(prev => [...prev, newOption]);
       setSelectedTags(prev => [...prev, newOption]);
       return newOption;
@@ -97,10 +129,21 @@ export default function EditPrompt({ params }) {
     setLoading(true);
 
     try {
-      await promptsApi.updatePrompt(id, user.id, prompt, selectedTags);
+      await promptsApi.updatePrompt(
+        id,
+        user?.id,
+        {
+          title: prompt.title,
+          content: prompt.content,
+          description: prompt.description,
+          platform: prompt.platform || 'GPT',
+        },
+        selectedTags
+      );
+
       router.push('/prompts');
     } catch (error) {
-      console.error('更新提示词失败:', error);
+      console.error('更新失败:', error);
       alert('更新失败，请重试');
     } finally {
       setLoading(false);
