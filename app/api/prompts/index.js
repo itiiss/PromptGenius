@@ -2,8 +2,86 @@ import { createSupabaseClient } from '../../lib/supabase';
 import { versionsApi } from '../versions';
 
 export const promptsApi = {
+
+  createPrompt: async (userId, promptData) => {
+    const supabase = createSupabaseClient();
+    const { data, error } = await supabase
+      .from('prompts')
+      .insert([
+        {
+          user_id: userId,
+          title: promptData.title,
+          content: promptData.content,
+          platform: promptData.platform,
+          tags: promptData.tags
+        }
+      ])
+      .select();
+
+    if (error) throw error;
+    return data[0];
+  },
+
+  // 更新提示词
+  updatePrompt: async (promptId, userId, promptData) => {
+    const supabase = createSupabaseClient();
+    const { data, error } = await supabase
+      .from('prompts')
+      .update({
+        title: promptData.title,
+        content: promptData.content,
+        platform: promptData.platform,
+        tags: promptData.tags,
+        updated_at: new Date()
+      })
+      .eq('id', promptId)
+      .eq('user_id', userId)
+      .select();
+
+    if (error) throw error;
+    return data[0];
+  },
+
+  // 获取单个提示词
+  fetchPrompt: async (promptId, userId) => {
+    const supabase = createSupabaseClient();
+    const { data, error } = await supabase
+      .from('prompts')
+      .select('*')
+      .eq('id', promptId)
+      .eq('user_id', userId)
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  // 获取提示词列表
+  fetchPrompts: async (userId, searchTerm = '', selectedTags = []) => {
+    const supabase = createSupabaseClient();
+    let query = supabase
+      .from('prompts')
+      .select('*')
+      .eq('user_id', userId);
+
+    if (searchTerm) {
+      query = query.or(`title.ilike.%${searchTerm}%,content.ilike.%${searchTerm}%`);
+    }
+
+    if (selectedTags && selectedTags.length > 0) {
+      const tagValues = selectedTags.map(tag => tag.value);
+      query = query.contains('tags', tagValues);
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  },
+
+
   // 获取提示词列表（包含搜索和过滤功能）
-  async fetchPrompts(userId, search = '', filterTags = []) {
+  async fetchPrompts(userId, search = '', filterTags = [], platform = null) {
     const supabase = createSupabaseClient();
     let query = supabase
       .from('prompts')
@@ -20,6 +98,14 @@ export const promptsApi = {
       const tagNames = filterTags.map(tag => tag.value);
       query = query.contains('tags', tagNames);
     }
+
+    // 如果指定了平台，添加平台过滤
+    if (platform) {
+      query = query.eq('platform', platform);
+    }
+
+    // 按创建时间降序排序
+    query = query.order('created_at', { ascending: false });
 
     const { data, error } = await query;
     if (error) throw error;
@@ -72,7 +158,10 @@ export const promptsApi = {
     if (tagError) throw tagError;
 
     return {
-      promptData,
+      promptData: {
+        ...promptData,
+        platform: promptData.platform || 'GPT' // 确保返回platform字段
+      },
       promptTags: tagData.map(item => ({
         value: item.tags.id,
         label: item.tags.name
@@ -98,15 +187,16 @@ export const promptsApi = {
       await versionsApi.createVersion(id, currentPrompt.content);
     }
 
-    // 3. 更新提示词基本信息
+    // 3. 更新提示词基本信息，添加platform字段
     const { error: updateError } = await supabase
       .from('prompts')
       .update({
         title: formData.title,
         description: formData.description,
         content: formData.content,
-        version: formData.version,
-        tags: tagNames
+        platform: formData.platform || 'GPT', // 添加platform字段
+        tags: tagNames,
+        updated_at: new Date()
       })
       .eq('id', id)
       .eq('user_id', userId);
@@ -149,14 +239,14 @@ export const promptsApi = {
     const tagIds = selectedTags.map(tag => tag.value);
     const tagNames = selectedTags.map(tag => tag.label);
 
-    // 1. 创建提示词，同时存储标签名称
+    // 1. 创建提示词，添加platform字段
     const { data: promptData, error: promptError } = await supabase
       .from('prompts')
       .insert([{
         title: formData.title,
         content: formData.content,
         description: formData.description,
-        version: formData.version,
+        platform: formData.platform || 'GPT', // 添加platform字段，默认为GPT
         user_id: userId,
         tags: tagNames
       }])
@@ -193,6 +283,9 @@ export const promptsApi = {
       .single();
 
     if (error) throw error;
-    return data;
+    return {
+      ...data,
+      platform: data.platform || 'GPT' // 确保返回platform字段
+    };
   }
 }; 

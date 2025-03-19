@@ -8,9 +8,8 @@ import dynamic from 'next/dynamic';
 import Loading from '../../../_components/loading';
 import { promptsApi } from '../../../api/prompts';
 import { tagsApi } from '../../../api/tags';
-const DynamicSelect = dynamic(() => import('react-select/creatable'), {
-  ssr: false,
-});
+import { PLATFORM_OPTIONS } from '../../../constants/platforms';
+import DynamicSelect from '../../../_components/DynamicSelect';
 
 export default function EditPrompt({ params }) {
   const { user } = useUser();
@@ -19,17 +18,16 @@ export default function EditPrompt({ params }) {
   const [loading, setLoading] = useState(true);
   const [tags, setTags] = useState([]);
   const [selectedTags, setSelectedTags] = useState([]);
-  const [formData, setFormData] = useState({
+  const [prompt, setPrompt] = useState({
     title: '',
-    description: '',
     content: '',
-    version: '1.0'
+    platform: 'GPT',
+    tags: []
   });
-  const [prompt, setPrompt] = useState(null);
 
   const loadData = useCallback(async () => {
     try {
-      const data = await promptsApi.getPrompt(id);
+      const data = await promptsApi.fetchPrompt(id, user.id);
       setPrompt(data);
     } catch (error) {
       console.error('加载提示词失败:', error);
@@ -58,14 +56,12 @@ export default function EditPrompt({ params }) {
       try {
         const { promptData, promptTags } = await promptsApi.loadPrompt(id, user.id);
         
-        setFormData({
+        setPrompt({
           title: promptData.title,
-          description: promptData.description || '',
           content: promptData.content,
-          version: promptData.version || '1.0'
+          platform: promptData.platform || 'GPT',
+          tags: promptTags
         });
-        
-        setSelectedTags(promptTags);
       } catch (error) {
         console.error('加载提示词失败:', error);
         alert('加载失败');
@@ -101,7 +97,7 @@ export default function EditPrompt({ params }) {
     setLoading(true);
 
     try {
-      await promptsApi.updatePrompt(id, user.id, formData, selectedTags);
+      await promptsApi.updatePrompt(id, user.id, prompt, selectedTags);
       router.push('/prompts');
     } catch (error) {
       console.error('更新提示词失败:', error);
@@ -128,8 +124,8 @@ export default function EditPrompt({ params }) {
             <input
               type="text"
               id="title"
-              value={formData.title}
-              onChange={(e) => setFormData(prev => ({
+              value={prompt.title}
+              onChange={(e) => setPrompt(prev => ({
                 ...prev,
                 title: e.target.value
               }))}
@@ -148,8 +144,8 @@ export default function EditPrompt({ params }) {
             <input
               type="text"
               id="description"
-              value={formData.description}
-              onChange={(e) => setFormData(prev => ({
+              value={prompt.description}
+              onChange={(e) => setPrompt(prev => ({
                 ...prev,
                 description: e.target.value
               }))}
@@ -168,8 +164,8 @@ export default function EditPrompt({ params }) {
             <textarea
               id="content"
               rows="8"
-              value={formData.content}
-              onChange={(e) => setFormData(prev => ({
+              value={prompt.content}
+              onChange={(e) => setPrompt(prev => ({
                 ...prev,
                 content: e.target.value
               }))}
@@ -179,6 +175,60 @@ export default function EditPrompt({ params }) {
                        transition-all duration-200"
               placeholder="输入提示词内容"
             ></textarea>
+          </div>
+
+          <div className="mb-6">
+            <label htmlFor="platform" className="block text-gray-700 dark:text-gray-300 font-medium mb-2">
+              平台
+            </label>
+            <DynamicSelect
+              id="platform"
+              value={PLATFORM_OPTIONS.find(option => option.value === prompt.platform)}
+              onChange={(option) => setPrompt({...prompt, platform: option.value})}
+              options={PLATFORM_OPTIONS}
+              placeholder="选择平台..."
+              className="react-select-container"
+              classNamePrefix="react-select"
+              styles={{
+                control: (base) => ({
+                  ...base,
+                  backgroundColor: 'rgb(249 250 251)',
+                  borderColor: '#d1d5db',
+                  borderRadius: '0.75rem',
+                  '&:hover': {
+                    borderColor: '#3b82f6',
+                  },
+                  boxShadow: 'none',
+                  '@media (prefers-color-scheme: dark)': {
+                    backgroundColor: 'rgb(31 41 55)',
+                    borderColor: 'rgb(55 65 81)',
+                  },
+                }),
+                menu: (base) => ({
+                  ...base,
+                  backgroundColor: 'rgb(249 250 251)',
+                  '@media (prefers-color-scheme: dark)': {
+                    backgroundColor: 'rgb(31 41 55)',
+                  },
+                }),
+                option: (base) => ({
+                  ...base,
+                  '@media (prefers-color-scheme: dark)': {
+                    '&:hover': {
+                      backgroundColor: 'rgb(55 65 81)',
+                    },
+                    backgroundColor: 'rgb(31 41 55)',
+                    color: 'rgb(229 231 235)',
+                  },
+                }),
+                singleValue: (base) => ({
+                  ...base,
+                  '@media (prefers-color-scheme: dark)': {
+                    color: 'rgb(229 231 235)',
+                  },
+                }),
+              }}
+            />
           </div>
 
           <div className="mb-6">
@@ -228,26 +278,6 @@ export default function EditPrompt({ params }) {
                 }}
               />
             </Suspense>
-          </div>
-
-          <div className="mb-6">
-            <label htmlFor="version" className="block text-gray-700 dark:text-gray-300 font-medium mb-2">
-              版本
-            </label>
-            <input
-              type="text"
-              id="version"
-              value={formData.version}
-              onChange={(e) => setFormData(prev => ({
-                ...prev,
-                version: e.target.value
-              }))}
-              className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl 
-                       focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400
-                       text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400
-                       transition-all duration-200"
-              placeholder="版本号"
-            />
           </div>
 
           <div className="flex justify-end gap-4">

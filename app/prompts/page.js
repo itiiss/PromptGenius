@@ -7,9 +7,10 @@ import toast, { Toaster } from 'react-hot-toast';
 import Link from 'next/link';
 import { promptsApi } from '../api/prompts';
 import { tagsApi } from '../api/tags';
-import { Menu, Transition } from '@headlessui/react';
-import { Fragment, useRef } from 'react';
+import { useRef } from 'react';
 import dynamic from 'next/dynamic';
+import { PLATFORMS } from '../constants/platforms';
+import DynamicSelect from '../_components/DynamicSelect';
 
 // 动态导入MenuPortal，禁用SSR
 const MenuPortal = dynamic(
@@ -53,9 +54,9 @@ const PromptCard = ({ prompt, onShare, onDelete, onAskQuestion }) => {
         {prompt.content}
       </p>
       
-      {prompt.tags && prompt.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1 mb-3">
-          {prompt.tags.slice(0, 2).map((tag, index) => (
+      <div className="flex flex-wrap gap-1 mb-3">
+        {prompt.tags && prompt.tags.length > 0 && (
+          prompt.tags.slice(0, 2).map((tag, index) => (
             <span
               key={index}
               className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400 
@@ -63,14 +64,17 @@ const PromptCard = ({ prompt, onShare, onDelete, onAskQuestion }) => {
             >
               {tag}
             </span>
-          ))}
-          {prompt.tags.length > 2 && (
-            <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-full text-xs">
-              +{prompt.tags.length - 2}
-            </span>
-          )}
-        </div>
-      )}
+          ))
+        )}
+        {prompt.tags.length > 2 && (
+          <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-full text-xs">
+            +{prompt.tags.length - 2}
+          </span>
+        )}
+        <span className="px-2 py-0.5 bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-400 rounded-full text-xs">
+          {PLATFORMS[prompt.platform]?.name || 'GPT'}
+        </span>
+      </div>
 
       <div className="flex justify-between items-center mt-auto pt-2 border-t border-gray-100 dark:border-gray-700">
         <button
@@ -175,6 +179,7 @@ export default function PromptsList() {
   const [searchTerm, setSearchTerm] = useState('');
   const [tags, setTags] = useState([]);
   const [selectedTags, setSelectedTags] = useState([]);
+  const [selectedPlatform, setSelectedPlatform] = useState(null);
   
 
   // 获取所有标签
@@ -198,7 +203,12 @@ export default function PromptsList() {
         setPrompts([]);
         return;
       }
-      const data = await promptsApi.fetchPrompts(user.id, searchTerm, selectedTags);
+      const data = await promptsApi.fetchPrompts(
+        user.id, 
+        searchTerm, 
+        selectedTags,
+        selectedPlatform?.value
+      );
       setPrompts(data);
     } catch (error) {
       console.error('加载提示词失败:', error);
@@ -206,7 +216,7 @@ export default function PromptsList() {
     } finally {
       setLoading(false);
     }
-  }, [user, searchTerm, selectedTags]);
+  }, [user, searchTerm, selectedTags, selectedPlatform]);
 
   useEffect(() => {
     loadPrompts();
@@ -225,6 +235,17 @@ export default function PromptsList() {
   const handleTagChange = (newValue) => {
     setSelectedTags(newValue || []);
   };
+
+  // 处理平台选择变化
+  const handlePlatformChange = (option) => {
+    setSelectedPlatform(option);
+  };
+
+  // 将 PLATFORMS 转换为 Select 组件需要的选项格式
+  const platformOptions = Object.values(PLATFORMS).map(platform => ({
+    value: platform.key,
+    label: platform.name
+  }));
 
   // 删除提示词
   const handleDelete = async (id) => {
@@ -272,67 +293,90 @@ export default function PromptsList() {
   // 添加handleAskQuestion函数
   const handleAskQuestion = async (prompt) => {
     try {
-      // 1. 尝试复制提示词到剪贴板
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(prompt.content);
-      } else {
-        // 后备方案：创建一个临时文本区域来复制文本
-        const textArea = document.createElement('textarea');
-        textArea.value = prompt.content;
-        textArea.style.position = 'fixed';
-        textArea.style.left = '-999999px';
-        textArea.style.top = '-999999px';
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
+      // 添加复制文本的后备方案
+      const copyText = async (text) => {
         try {
-          document.execCommand('copy');
-          textArea.remove();
+          // 首选方案：使用 Clipboard API
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(text);
+            return true;
+          }
+
+          // 后备方案：使用传统的 document.execCommand
+          const textArea = document.createElement('textarea');
+          textArea.value = text;
+          textArea.style.fontSize = '12pt';
+          textArea.style.position = 'fixed';
+          textArea.style.top = '0';
+          textArea.style.left = '-9999px';
+          textArea.style.width = '2em';
+          textArea.style.height = '2em';
+          textArea.style.padding = '0';
+          textArea.style.border = 'none';
+          textArea.style.outline = 'none';
+          textArea.style.boxShadow = 'none';
+          textArea.style.background = 'transparent';
+          
+          document.body.appendChild(textArea);
+          textArea.focus();
+          textArea.select();
+
+          try {
+            document.execCommand('copy');
+            textArea.remove();
+            return true;
+          } catch (err) {
+            console.error('复制失败:', err);
+            textArea.remove();
+            return false;
+          }
         } catch (err) {
           console.error('复制失败:', err);
-          textArea.remove();
-          toast.error('复制失败，请手动复制');
-          return;
+          return false;
         }
-      }
+      };
 
-      // 2. 尝试打开ChatGPT应用
-      const chatgptIosUrl = `chatgpt://`;
-      const chatgptAndroidUrl = `com.openai.chatgpt://`;
-      const webFallback = `https://chat.openai.com/`;
+      // 尝试复制文本
+      const copySuccess = await copyText(prompt.content);
       
+      const platform = PLATFORMS[prompt.platform] || PLATFORMS.GPT;
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
       const isAndroid = /Android/.test(navigator.userAgent);
       
-      let appUrl = webFallback;
-      if (isIOS) {
-        appUrl = chatgptIosUrl;
-      } else if (isAndroid) {
-        appUrl = chatgptAndroidUrl;
+      // 根据复制结果显示不同的提示
+      if (copySuccess) {
+        toast.success(`提示词已复制，正在打开${platform.name}...`, {
+          duration: 2000,
+          position: 'top-center',
+          icon: '🤖',
+          style: {
+            borderRadius: '10px',
+            background: '#333',
+            color: '#fff',
+          },
+        });
+      } else {
+        toast.warning(`无法自动复制提示词，请手动复制后使用`, {
+          duration: 3000,
+          position: 'top-center',
+          icon: '⚠️',
+          style: {
+            borderRadius: '10px',
+            background: '#333',
+            color: '#fff',
+          },
+        });
       }
-      
-      // 显示成功提示
-      toast.success('提示词已复制，正在打开ChatGPT...', {
-        duration: 2000,
-        position: 'top-center',
-        icon: '🤖',
-        style: {
-          borderRadius: '10px',
-          background: '#333',
-          color: '#fff',
-        },
-      });
 
-      // 尝试打开应用
-      window.location.href = appUrl;
-      
-      // 如果2秒后还在当前页面，跳转到网页版
-      setTimeout(() => {
-        if (document.hidden || document.webkitHidden) {
-          return;
-        }
-        window.location.href = webFallback;
-      }, 2000);
+      // 判断是否为移动端
+      if (isIOS || isAndroid) {
+        // 移动端：直接尝试打开APP
+        const appUrl = isIOS ? platform.url.ios : platform.url.android;
+        window.location.href = appUrl;
+      } else {
+        // 桌面端：新窗口打开网页版
+        window.open(platform.url.web, '_blank');
+      }
 
     } catch (err) {
       console.error('操作失败:', err);
@@ -379,6 +423,59 @@ export default function PromptsList() {
                   d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
                 />
               </svg>
+            </div>
+            
+            <div className="w-48">
+              <DynamicSelect
+                value={selectedPlatform}
+                onChange={handlePlatformChange}
+                options={platformOptions}
+                placeholder="按平台筛选..."
+                isClearable
+                className="react-select-container"
+                classNamePrefix="react-select"
+                styles={{
+                  control: (base) => ({
+                    ...base,
+                    minHeight: '42px',
+                    backgroundColor: 'rgb(249 250 251)',
+                    borderColor: '#d1d5db',
+                    borderRadius: '0.75rem',
+                    '&:hover': {
+                      borderColor: '#3b82f6',
+                    },
+                    boxShadow: 'none',
+                    height: 'auto',
+                    '@media (prefers-color-scheme: dark)': {
+                      backgroundColor: 'rgb(31 41 55)',
+                      borderColor: 'rgb(55 65 81)',
+                    },
+                  }),
+                  menu: (base) => ({
+                    ...base,
+                    backgroundColor: 'rgb(249 250 251)',
+                    '@media (prefers-color-scheme: dark)': {
+                      backgroundColor: 'rgb(31 41 55)',
+                    },
+                  }),
+                  option: (base) => ({
+                    ...base,
+                    '@media (prefers-color-scheme: dark)': {
+                      '&:hover': {
+                        backgroundColor: 'rgb(55 65 81)',
+                      },
+                      backgroundColor: 'rgb(31 41 55)',
+                      color: 'rgb(229 231 235)',
+                    },
+                  }),
+                  singleValue: (base) => ({
+                    ...base,
+                    '@media (prefers-color-scheme: dark)': {
+                      color: 'rgb(229 231 235)',
+                    },
+                  }),
+                }}
+              />
             </div>
             
             <div className="w-72">

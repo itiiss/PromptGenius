@@ -7,10 +7,8 @@ import dynamic from 'next/dynamic';
 import Loading from '../../_components/loading';
 import { promptsApi } from '../../api/prompts';
 import { tagsApi } from '../../api/tags';
-// 动态导入 React Select，并禁用 SSR
-const DynamicSelect = dynamic(() => import('react-select/creatable'), {
-  ssr: false,
-});
+import { PLATFORM_OPTIONS } from '../../constants/platforms';
+import DynamicSelect from '../../_components/DynamicSelect';
 
 export default function CreatePrompt() {
   const { user } = useUser();
@@ -18,8 +16,8 @@ export default function CreatePrompt() {
     title: '',
     description: '',
     content: '',
+    platform: 'GPT',
     tags: '',
-    version: '1.0',
     coverImage: null
   });
   const [tags, setTags] = useState([]);
@@ -152,6 +150,60 @@ export default function CreatePrompt() {
           </div>
 
           <div className="mb-6">
+            <label htmlFor="platform" className="block text-gray-700 dark:text-gray-300 font-medium mb-2">
+              平台
+            </label>
+            <DynamicSelect
+              id="platform"
+              value={PLATFORM_OPTIONS.find(option => option.value === formData.platform)}
+              onChange={(option) => setFormData({...formData, platform: option.value})}
+              options={PLATFORM_OPTIONS}
+              placeholder="选择平台..."
+              className="react-select-container"
+              classNamePrefix="react-select"
+              styles={{
+                control: (base) => ({
+                  ...base,
+                  backgroundColor: 'rgb(249 250 251)',
+                  borderColor: '#d1d5db',
+                  borderRadius: '0.75rem',
+                  '&:hover': {
+                    borderColor: '#3b82f6',
+                  },
+                  boxShadow: 'none',
+                  '@media (prefers-color-scheme: dark)': {
+                    backgroundColor: 'rgb(31 41 55)',
+                    borderColor: 'rgb(55 65 81)',
+                  },
+                }),
+                menu: (base) => ({
+                  ...base,
+                  backgroundColor: 'rgb(249 250 251)',
+                  '@media (prefers-color-scheme: dark)': {
+                    backgroundColor: 'rgb(31 41 55)',
+                  },
+                }),
+                option: (base) => ({
+                  ...base,
+                  '@media (prefers-color-scheme: dark)': {
+                    '&:hover': {
+                      backgroundColor: 'rgb(55 65 81)',
+                    },
+                    backgroundColor: 'rgb(31 41 55)',
+                    color: 'rgb(229 231 235)',
+                  },
+                }),
+                singleValue: (base) => ({
+                  ...base,
+                  '@media (prefers-color-scheme: dark)': {
+                    color: 'rgb(229 231 235)',
+                  },
+                }),
+              }}
+            />
+          </div>
+
+          <div className="mb-6">
             <label htmlFor="tags" className="block text-gray-700 dark:text-gray-300 font-medium mb-2">
               标签
             </label>
@@ -228,23 +280,6 @@ export default function CreatePrompt() {
                 }}
               />
             </Suspense>
-          </div>
-
-          <div className="mb-6">
-            <label htmlFor="version" className="block text-gray-700 dark:text-gray-300 font-medium mb-2">
-              版本
-            </label>
-            <input
-              type="text"
-              id="version"
-              value={formData.version}
-              onChange={handleInputChange}
-              className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl 
-                       focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400
-                       text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400
-                       transition-all duration-200"
-              placeholder="输入版本号"
-            />
           </div>
 
           <div className="mb-6">
